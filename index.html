@@ -1,0 +1,959 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0c1f15">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
+</head>
+<body>
+<title>Touchdown Lernapp</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Graduate&family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@500;600;700&display=swap">
+<style>
+/* Layout: one column "sideline tablet" — scoreboard band on top, field strip, play card below. Night-game stadium look, single theme by choice. */
+:root{
+  --night:#0c1f15;        /* page ground: turf at night */
+  --turf:#1d5a33;         /* field green */
+  --turf-2:#22673b;       /* alternate mow stripe */
+  --panel:#11291c;        /* cards */
+  --panel-2:#173624;      /* raised */
+  --line:#2c4a38;         /* hairlines, green-biased neutral */
+  --chalk:#f2f0e6;        /* text, yard lines */
+  --muted:#a9bcae;        /* secondary text */
+  --post:#f6c431;         /* goalpost yellow: accent */
+  --post-ink:#1d1704;
+  --good:#5fd38a;
+  --flag:#ff5a4e;         /* penalty flag */
+  --leather:#8a4a22;
+  --f-display:"Graduate","Rockwell","Georgia",serif;
+  --f-body:"Barlow",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-board:"Barlow Condensed","Arial Narrow",system-ui,sans-serif;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{background:var(--night);color:var(--chalk)}
+body{font-family:var(--f-body);font-size:16px;line-height:1.5;-webkit-font-smoothing:antialiased}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--night)}
+.wrap{max-width:860px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:16px 48px;display:flex;flex-direction:column;gap:20px}
+h1,h2,h3{font-family:var(--f-display);font-weight:400;letter-spacing:.02em;text-wrap:balance;margin:0;line-height:1.15}
+h1{font-size:clamp(1.6rem,4.5vw,2.3rem)}
+h2{font-size:clamp(1.25rem,3.5vw,1.6rem)}
+h3{font-size:1.1rem}
+p{margin:0}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible,input:focus-visible,textarea:focus-visible,a:focus-visible{outline:3px solid var(--post);outline-offset:2px}
+.eyebrow{font-family:var(--f-board);text-transform:uppercase;letter-spacing:.14em;font-size:.8rem;color:var(--muted);font-weight:600}
+.muted{color:var(--muted)}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.spread{display:flex;gap:12px;flex-wrap:wrap;align-items:center;justify-content:space-between}
+
+/* Buttons */
+.btn{border:2px solid var(--line);background:var(--panel-2);border-radius:10px;padding:10px 16px;font-weight:600;font-family:var(--f-board);font-size:1.05rem;letter-spacing:.06em;text-transform:uppercase;transition:transform .08s,background .15s,border-color .15s}
+.btn:hover{border-color:var(--muted)}
+.btn:active{transform:translateY(1px)}
+.btn.primary{background:var(--post);color:var(--post-ink);border-color:var(--post)}
+.btn.primary:hover{background:#ffd552}
+.btn.ghost{background:transparent}
+.btn.danger{border-color:var(--flag);color:var(--flag);background:transparent}
+.btn.small{padding:6px 12px;font-size:.95rem}
+.back{background:none;border:0;color:var(--muted);font-family:var(--f-board);text-transform:uppercase;letter-spacing:.1em;font-weight:600;padding:4px 0;align-self:flex-start}
+.back:hover{color:var(--chalk)}
+
+/* Scoreboard */
+.board{background:#07140d;border:2px solid var(--line);border-radius:14px;padding:12px 16px;display:grid;grid-template-columns:1fr auto auto;gap:6px 22px;align-items:center}
+.board .team{font-family:var(--f-display);font-size:1.4rem;line-height:1.1;min-width:0;overflow-wrap:anywhere}
+.board .team small{display:block;font-family:var(--f-board);font-size:.8rem;letter-spacing:.14em;color:var(--muted);text-transform:uppercase}
+.digit{font-family:var(--f-board);font-weight:700;font-size:2.1rem;line-height:1;color:var(--post);font-variant-numeric:tabular-nums;text-align:center;text-shadow:0 0 12px rgba(246,196,49,.35)}
+.digit small{display:block;font-size:.72rem;letter-spacing:.14em;color:var(--muted);font-weight:600;text-shadow:none;margin-top:4px}
+.board .ticker{grid-column:1/-1;border-top:1px dashed var(--line);padding-top:8px;font-family:var(--f-board);letter-spacing:.06em;font-size:1rem;color:var(--chalk)}
+.ticker b{color:var(--post)}
+
+/* Subject cards */
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:14px}
+.subj{background:var(--panel);border:2px solid var(--line);border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:10px;text-align:left;min-width:0}
+.subj:hover{border-color:var(--post)}
+.subj .meta{font-family:var(--f-board);letter-spacing:.06em;color:var(--muted);font-size:.95rem}
+.subj.add{border-style:dashed;align-items:center;justify-content:center;text-align:center;min-height:150px;color:var(--muted)}
+.subj.add .plus{font-family:var(--f-display);font-size:2.2rem;color:var(--post);line-height:1}
+.bar{height:8px;background:#07140d;border-radius:99px;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--good);border-radius:99px}
+
+/* Topic list */
+.drill{background:linear-gradient(135deg,var(--turf),#14462a);border:2px solid var(--post);border-radius:14px;padding:16px;display:flex;gap:14px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+.drill p{color:var(--chalk);opacity:.9;max-width:46ch}
+.plays{display:flex;flex-direction:column;gap:10px}
+.play{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px;display:grid;grid-template-columns:auto 1fr auto;gap:6px 14px;align-items:center}
+.play .no{font-family:var(--f-board);font-weight:700;font-size:1.5rem;color:var(--muted);width:2ch;text-align:center;font-variant-numeric:tabular-nums}
+.play .info{min-width:0;display:flex;flex-direction:column;gap:4px}
+.play .actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{font-family:var(--f-board);font-size:.82rem;letter-spacing:.08em;text-transform:uppercase;border:1px solid var(--line);border-radius:99px;padding:1px 9px;color:var(--muted);font-weight:600}
+.chip.td{border-color:var(--post);color:var(--post)}
+.chip.ok{border-color:var(--good);color:var(--good)}
+@media (max-width:560px){
+  .play{grid-template-columns:auto 1fr}
+  .play .actions{grid-column:1/-1;justify-content:stretch}
+  .play .actions .btn{flex:1}
+}
+
+/* Field */
+.field{display:grid;grid-template-columns:9% 1fr 9%;grid-template-rows:minmax(0,1fr);height:78px;border-radius:10px;overflow:hidden;border:3px solid var(--chalk);position:relative}
+.ez{display:flex;align-items:center;justify-content:center;overflow:hidden;min-height:0;font-family:var(--f-display);font-size:.62rem;writing-mode:vertical-rl;transform:rotate(180deg);letter-spacing:.12em;color:var(--chalk)}
+.ez.home{background:#2a4d8f}
+.ez.away{background:#b44a1c;transform:none}
+.turf{position:relative;background:repeating-linear-gradient(90deg,var(--turf) 0 10%,var(--turf-2) 10% 20%)}
+.turf::before{content:"";position:absolute;inset:0;background:repeating-linear-gradient(90deg,rgba(242,240,230,.75) 0 2px,transparent 2px 10%);background-position:-1px 0}
+.yd{position:absolute;bottom:4px;transform:translateX(-50%);font-family:var(--f-board);font-weight:700;font-size:.8rem;color:rgba(242,240,230,.8)}
+.los{position:absolute;top:0;bottom:0;width:3px;background:#5aa9ff;transform:translateX(-50%);transition:left .6s cubic-bezier(.3,.8,.3,1)}
+.ball{position:absolute;top:22px;width:34px;height:20px;transform:translateX(-50%);transition:left .6s cubic-bezier(.3,.8,.3,1);filter:drop-shadow(0 2px 2px rgba(0,0,0,.4))}
+.flagdrop{position:absolute;top:6px;width:16px;height:16px;transform:translateX(-50%);animation:drop .5s ease-out}
+@keyframes drop{from{transform:translate(-50%,-40px) rotate(-90deg);opacity:0}to{transform:translate(-50%,0) rotate(0);opacity:1}}
+.down{display:flex;gap:10px;flex-wrap:wrap;justify-content:space-between;font-family:var(--f-board);letter-spacing:.06em;font-size:1.05rem}
+.down b{color:var(--post);font-weight:700}
+.timer{font-family:var(--f-board);font-weight:700;font-size:1.6rem;color:var(--post);font-variant-numeric:tabular-nums}
+.timer.low{color:var(--flag)}
+
+/* Play card */
+.card{background:var(--panel);border:2px solid var(--line);border-radius:16px;padding:20px;display:flex;flex-direction:column;gap:16px}
+.qtag{font-family:var(--f-board);text-transform:uppercase;letter-spacing:.14em;font-size:.82rem;color:var(--post);font-weight:700}
+.q{font-size:clamp(1.15rem,3vw,1.4rem);font-weight:600;line-height:1.35;max-width:60ch}
+.opts{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media (max-width:600px){.opts{grid-template-columns:1fr}}
+.opt{text-align:left;background:var(--panel-2);border:2px solid var(--line);border-radius:12px;padding:12px 14px;display:flex;gap:12px;align-items:flex-start;font-size:1.02rem;line-height:1.35;min-width:0}
+.opt:hover:not(:disabled){border-color:var(--post)}
+.opt .k{font-family:var(--f-board);font-weight:700;color:var(--muted);flex:none;width:1.4em;height:1.4em;border:1px solid var(--line);border-radius:6px;display:grid;place-items:center;font-size:.9rem}
+.opt.right{border-color:var(--good);background:rgba(95,211,138,.12)}
+.opt.wrong{border-color:var(--flag);background:rgba(255,90,78,.12)}
+.opt:disabled{cursor:default}
+.tf{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.tf .opt{justify-content:center;font-family:var(--f-board);text-transform:uppercase;letter-spacing:.08em;font-weight:700;font-size:1.15rem}
+.order-pool,.order-ans{display:flex;flex-wrap:wrap;gap:8px;min-height:52px;padding:8px;border-radius:12px}
+.order-ans{border:2px dashed var(--line);counter-reset:o}
+.order-pool .tok,.order-ans .tok{border:2px solid var(--line);background:var(--panel-2);border-radius:10px;padding:8px 12px;font-weight:600}
+.order-ans .tok{border-color:var(--post)}
+.order-ans .tok::before{counter-increment:o;content:counter(o) ". ";color:var(--post);font-family:var(--f-board)}
+.order-ans .tok.right{border-color:var(--good)}
+.order-ans .tok.wrong{border-color:var(--flag)}
+.feedback{border-radius:12px;padding:14px 16px;display:flex;flex-direction:column;gap:8px;border:2px solid}
+.feedback.good{border-color:var(--good);background:rgba(95,211,138,.08)}
+.feedback.bad{border-color:var(--flag);background:rgba(255,90,78,.08)}
+.feedback .call{font-family:var(--f-display);font-size:1.15rem}
+.feedback.good .call{color:var(--good)}
+.feedback.bad .call{color:var(--flag)}
+.feedback .sol{font-weight:600}
+
+/* Flashcards */
+.flash{perspective:1200px;min-height:240px;border:0;background:none;padding:0;text-align:left;width:100%}
+.flash-in{position:relative;min-height:240px;transition:transform .45s;transform-style:preserve-3d}
+.flash.flip .flash-in{transform:rotateY(180deg)}
+.face{position:absolute;inset:0;backface-visibility:hidden;-webkit-backface-visibility:hidden;border-radius:16px;padding:22px;display:flex;flex-direction:column;gap:12px;justify-content:center;border:2px solid var(--line);background:var(--panel);overflow:auto}
+.face.ans{transform:rotateY(180deg);background:var(--panel-2);border-color:var(--post)}
+.face .big{font-size:clamp(1.15rem,3vw,1.4rem);font-weight:600;line-height:1.35}
+.face .hint{font-family:var(--f-board);text-transform:uppercase;letter-spacing:.12em;font-size:.8rem;color:var(--muted)}
+
+/* Overlay */
+.td{text-align:center;align-items:center;padding-block:28px;background:radial-gradient(ellipse at top,rgba(246,196,49,.18),transparent 60%),var(--panel);border-color:var(--post)}
+.td h1{font-size:clamp(2.2rem,9vw,4rem);color:var(--post);text-shadow:0 0 24px rgba(246,196,49,.4)}
+.td .pts{font-family:var(--f-board);font-size:1.3rem;letter-spacing:.08em}
+.td .pts b{color:var(--post);font-size:1.6rem}
+.statgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;width:100%}
+.stat{background:#07140d;border:1px solid var(--line);border-radius:10px;padding:10px;text-align:center}
+.stat b{display:block;font-family:var(--f-board);font-size:1.7rem;color:var(--post);font-variant-numeric:tabular-nums;line-height:1.1}
+.stat span{font-family:var(--f-board);text-transform:uppercase;letter-spacing:.1em;font-size:.78rem;color:var(--muted)}
+#confetti{position:fixed;inset:0;pointer-events:none;z-index:50}
+
+/* Forms */
+label{font-family:var(--f-board);text-transform:uppercase;letter-spacing:.1em;font-weight:600;font-size:.85rem;color:var(--muted);display:flex;flex-direction:column;gap:6px}
+input,textarea{font:inherit;color:var(--chalk);background:#07140d;border:2px solid var(--line);border-radius:10px;padding:10px 12px;text-transform:none;letter-spacing:normal;font-family:var(--f-body);font-size:1rem;width:100%}
+textarea{min-height:280px;font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;font-size:.92rem;line-height:1.5}
+.formgrid{display:grid;grid-template-columns:2fr 1fr;gap:12px}
+@media (max-width:560px){.formgrid{grid-template-columns:1fr}}
+.help{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px;display:flex;flex-direction:column;gap:8px;font-size:.95rem}
+.help code{font-family:ui-monospace,Menlo,Consolas,monospace;background:#07140d;padding:1px 6px;border-radius:5px;color:var(--post)}
+.err{color:var(--flag);font-weight:600}
+.okmsg{color:var(--good);font-weight:600}
+.confirm{border:2px solid var(--flag);border-radius:12px;padding:12px 14px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;justify-content:space-between}
+
+/* Badges */
+.badges{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px}
+.badge{border:2px solid var(--line);border-radius:12px;padding:12px;display:flex;gap:12px;align-items:center;background:var(--panel);opacity:.55}
+.badge.on{opacity:1;border-color:var(--post)}
+.badge .ic{width:40px;height:40px;flex:none;border-radius:50%;display:grid;place-items:center;background:#07140d;font-family:var(--f-display);color:var(--post);font-size:1rem}
+.badge b{display:block;font-family:var(--f-board);letter-spacing:.06em;font-size:1.05rem}
+.badge span{font-size:.85rem;color:var(--muted);line-height:1.3;display:block}
+.sync{font-size:.82rem;color:var(--muted);font-family:var(--f-board);letter-spacing:.08em}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+
+<canvas id="confetti" hidden></canvas>
+<main class="wrap" id="app" aria-live="polite"></main>
+
+<script>
+/* =========================================================
+   INHALT: Biologie (Test 12.11.) – fest eingebaut.
+   Weitere Fächer werden in der App über "Fach hinzufügen" angelegt.
+   ========================================================= */
+const BUILTIN = [{
+  id: "bio", name: "Biologie", test: "2026-11-12", builtin: true,
+  topics: [
+  { id: "fossil", name: "Evolution & Fossilien",
+    cards: [
+      {q:"Was versteht man unter Evolution?", a:"Die langsame Entwicklung und Veränderung der Lebewesen über Millionen von Jahren – von einfachen zu immer vielfältigeren Formen (Stammesgeschichte)."},
+      {q:"Was ist ein Fossil?", a:"Überreste oder Spuren von Lebewesen aus früheren Zeiten, die älter als 10.000 Jahre sind (meist versteinert)."},
+      {q:"Nenne 3 Beispiele für Fossilien.", a:"Dinosaurierknochen, versteinerter Haizahn, Insekt im Bernstein (auch: Abdruck eines Farnblatts, versteinerte Fußspuren, Ammonit)."},
+      {q:"Was ist ein lebendes Fossil? Beispiele!", a:"Ein Lebewesen, das heute noch lebt und sich seit Millionen von Jahren kaum verändert hat. Beispiele: Quastenflosser, Ginkgo, Pfeilschwanzkrebs, Nautilus."},
+      {q:"Was ist ein Leitfossil? Nenne ein Beispiel.", a:"Ein Fossil einer Art, die nur kurze Zeit, aber weit verbreitet gelebt hat. Findet man es, weiß man, wie alt die Gesteinsschicht ist. Beispiel: Ammonit (Erdmittelalter), Trilobit (Erdaltertum)."}
+    ],
+    quiz: [
+      {type:"mc", q:"Was versteht man unter Evolution?", options:["Die allmähliche Entwicklung der Lebewesen über sehr lange Zeiträume","Das gleichzeitige Entstehen aller Tiere an einem Tag","Das Aussterben der Dinosaurier","Die Entstehung von Gesteinen und Bergen"], correct:0, explain:"Evolution = Stammesgeschichte: Lebewesen verändern sich über Millionen Jahre."},
+      {type:"mc", q:"Ab welchem Alter nennt man Überreste von Lebewesen ein Fossil?", options:["Älter als 10.000 Jahre","Älter als 100 Jahre","Älter als 1.000 Jahre","Älter als 1 Milliarde Jahre"], correct:0},
+      {type:"mc", q:"Welches davon ist KEIN Fossil?", options:["Ein Hühnerknochen vom letzten Sonntagsessen","Ein Insekt im Bernstein","Ein versteinerter Haizahn","Versteinerte Fußspuren eines Sauriers"], correct:0, explain:"Fossilien müssen älter als 10.000 Jahre sein."},
+      {type:"tf", q:"Ein Insekt, das in Bernstein eingeschlossen ist, ist ein Fossil.", answer:true, explain:"Bernstein ist versteinertes Baumharz – darin bleiben Insekten Millionen Jahre erhalten."},
+      {type:"tf", q:"Ein lebendes Fossil ist ein Lebewesen, das sich seit Millionen Jahren kaum verändert hat.", answer:true},
+      {type:"mc", q:"Welches ist ein lebendes Fossil?", options:["Ginkgo","Tyrannosaurus","Mammut","Archaeopteryx"], correct:0, explain:"Den Ginkgo gibt es seit dem Erdmittelalter fast unverändert. Die anderen sind ausgestorben."},
+      {type:"mc", q:"Wozu verwendet man Leitfossilien?", options:["Um das Alter von Gesteinsschichten zu bestimmen","Um Erdöl zu verbrennen","Um zu zeigen, wo Tiere heute leben","Um Dinosaurier zu klonen"], correct:0},
+      {type:"mc", q:"Welches Leitfossil ist typisch für das Erdmittelalter?", options:["Ammonit","Trilobit","Mammut","Ginkgo"], correct:0, explain:"Ammonit = Erdmittelalter, Trilobit = Erdaltertum."},
+      {type:"tf", q:"Ein Leitfossil hat nur kurze Zeit gelebt, war aber weit verbreitet.", answer:true},
+      {type:"tf", q:"Der Quastenflosser ist schon vor 65 Millionen Jahren ausgestorben.", answer:false, explain:"Das dachte man lange. 1938 wurde vor Südafrika ein lebender Quastenflosser gefangen – ein lebendes Fossil."}
+    ]},
+  { id: "alt", name: "Erdurzeit & Erdaltertum",
+    cards: [
+      {q:"In welche 4 großen Zeitalter teilt man die Erdgeschichte ein?", a:"Erdurzeit → Erdaltertum → Erdmittelalter → Erdneuzeit (von alt nach jung)."},
+      {q:"Wer produziert in der Erdurzeit anfangs den Sauerstoff, und was bildet dieser?", a:"Bakterien (Blaualgen/Cyanobakterien). Der Sauerstoff bildet die Atmosphäre (Lufthülle) mit der schützenden Ozonschicht."},
+      {q:"Wo entwickeln sich die ersten Lebewesen? Nenne drei Mehrzeller.", a:"Im Meer. Erste Mehrzeller: Quallen, Schwämme, Grünalgen."},
+      {q:"Wie wird das Devon genannt?", a:"Zeitalter der Fische."},
+      {q:"Wer besiedelt zuerst das Festland? Welche Tiergruppe mit welchem Vertreter betritt dann das Land?", a:"Zuerst die Pflanzen. Dann gehen Fische an Land: Aus dem Quastenflosser entwickeln sich die ersten Amphibien (Lurche)."},
+      {q:"Nenne 2 Pflanzen, die im tropischen Klima des Erdaltertums gut gediehen.", a:"Baumfarne und Schachtelhalme (auch Bärlappgewächse wie Schuppenbäume)."},
+      {q:"Welche Tiere bevölkern die Sumpfwälder im Karbon und warum sind sie größer als heute?", a:"Riesige Insekten (z. B. Libellen mit ca. 70 cm Flügelspannweite) und Lurche. Sie konnten so groß werden, weil die Luft viel mehr Sauerstoff enthielt als heute."},
+      {q:"Wann entstehen die Vorläufer der Säugetiere?", a:"Am Ende des Erdaltertums, beim Übergang vom Karbon zum Perm (säugetierähnliche Reptilien)."}
+    ],
+    quiz: [
+      {type:"order", q:"Bring die 4 Erdzeitalter in die richtige Reihenfolge – das älteste zuerst.", items:["Erdurzeit","Erdaltertum","Erdmittelalter","Erdneuzeit"]},
+      {type:"mc", q:"Wer produzierte in der Erdurzeit als Erstes Sauerstoff?", options:["Bakterien (Blaualgen)","Dinosaurier","Vulkane","Laubbäume"], correct:0},
+      {type:"mc", q:"Was bildete dieser Sauerstoff?", options:["Die Atmosphäre mit der Ozonschicht","Die Kontinente","Die Ozeane","Den Erdkern"], correct:0},
+      {type:"mc", q:"Wo entwickelten sich die ersten Lebewesen?", options:["Im Meer","An Land","In Höhlen","Im Eis der Pole"], correct:0},
+      {type:"mc", q:"Welche drei gehören zu den ersten Mehrzellern?", options:["Quallen, Schwämme, Grünalgen","Mammut, Fische, Farne","Insekten, Lurche, Saurier","Vögel, Pilze, Moose"], correct:0},
+      {type:"mc", q:"Wie wird das Devon genannt?", options:["Zeitalter der Fische","Zeitalter der Saurier","Zeitalter der Säugetiere","Zeitalter der Vögel"], correct:0},
+      {type:"mc", q:"Wer besiedelte ZUERST das Festland?", options:["Die Pflanzen","Die Dinosaurier","Die Säugetiere","Die Vögel"], correct:0},
+      {type:"mc", q:"Aus welchem Fisch entwickelten sich die ersten Amphibien (Lurche)?", options:["Quastenflosser","Hai","Karpfen","Ichthyosaurier"], correct:0, explain:"Der Quastenflosser hatte kräftige, knochige Flossen – fast schon wie Beine."},
+      {type:"mc", q:"Welche zwei Pflanzen wuchsen in den tropischen Sumpfwäldern des Erdaltertums?", options:["Baumfarne und Schachtelhalme","Rosen und Tulpen","Eichen und Buchen","Kakteen und Sonnenblumen"], correct:0},
+      {type:"mc", q:"Warum waren die Insekten im Karbon so riesig?", options:["Die Luft enthielt viel mehr Sauerstoff","Es gab damals schon Menschen, die sie fütterten","Es war extrem kalt","Sie lebten alle im Meer"], correct:0},
+      {type:"tf", q:"Im Karbon gab es Libellen mit etwa 70 cm Flügelspannweite.", answer:true},
+      {type:"mc", q:"Wann entstanden die Vorläufer der Säugetiere?", options:["Beim Übergang vom Karbon zum Perm","In der Erdneuzeit","In der Erdurzeit","Vor 10.000 Jahren"], correct:0},
+      {type:"order", q:"Ordne diese Abschnitte des Erdaltertums – der älteste zuerst.", items:["Devon","Karbon","Perm"]}
+    ]},
+  { id: "mittel", name: "Erdmittelalter & Urvogel",
+    cards: [
+      {q:"Durch welche Tiere ist das Erdmittelalter geprägt?", a:"Durch die Saurier (Dinosaurier) – es ist das Zeitalter der Saurier."},
+      {q:"In welche 3 Zeitabschnitte gliedern wir das Erdmittelalter?", a:"Trias → Jura → Kreide."},
+      {q:"Wie heißt der Urvogel und aus wem entwickelt er sich?", a:"Archaeopteryx. Er hat sich aus Reptilien (kleinen Raubsauriern) entwickelt."},
+      {q:"Nenne je 3 Reptilien- und Vogelmerkmale des Archaeopteryx.", a:"Reptil: Zähne im Kiefer, lange Schwanzwirbelsäule, Krallen an den Flügeln (Fingern). Vogel: Federn, Flügel, Vogelfuß (auch: Gabelbein)."},
+      {q:"Wie endet das Zeitalter der Saurier vermutlich?", a:"Durch den Einschlag eines riesigen Meteoriten (KT-Meteorit) vor etwa 65 Millionen Jahren."}
+    ],
+    quiz: [
+      {type:"mc", q:"Durch welche Tiere ist das Erdmittelalter geprägt?", options:["Saurier","Säugetiere","Trilobiten","Riesenlibellen"], correct:0},
+      {type:"order", q:"Ordne die 3 Abschnitte des Erdmittelalters – der älteste zuerst.", items:["Trias","Jura","Kreide"]},
+      {type:"mc", q:"Wie heißt der Urvogel?", options:["Archaeopteryx","Ichthyosaurier","Iguanodon","Megalosaurus"], correct:0},
+      {type:"mc", q:"Aus welcher Tiergruppe entwickelte sich der Urvogel?", options:["Aus Reptilien (Sauriern)","Aus Säugetieren","Aus Fischen","Aus Insekten"], correct:0},
+      {type:"mc", q:"Welches ist ein REPTILIEN-Merkmal des Archaeopteryx?", options:["Zähne im Kiefer","Federn","Flügel","Vogelfuß"], correct:0},
+      {type:"mc", q:"Welches ist ein VOGEL-Merkmal des Archaeopteryx?", options:["Federn","Lange Schwanzwirbelsäule","Zähne im Kiefer","Krallen an den Fingern"], correct:0},
+      {type:"tf", q:"Der Archaeopteryx hatte eine lange Schwanzwirbelsäule wie ein Reptil.", answer:true},
+      {type:"tf", q:"Der Archaeopteryx ist eine Übergangsform zwischen Reptilien und Vögeln.", answer:true},
+      {type:"mc", q:"Wie endete das Zeitalter der Saurier vermutlich?", options:["Mit dem Einschlag des KT-Meteoriten","Durch eine Eiszeit mit Mammuts","Durch die ersten Menschen","Durch zu viel Sauerstoff"], correct:0},
+      {type:"mc", q:"Vor wie vielen Jahren endete das Erdmittelalter?", options:["Vor ca. 65 Millionen Jahren","Vor ca. 6.500 Jahren","Vor ca. 650 Millionen Jahren","Vor ca. 6,5 Milliarden Jahren"], correct:0},
+      {type:"tf", q:"Menschen und Dinosaurier lebten zur gleichen Zeit.", answer:false, explain:"Zwischen den letzten Dinosauriern und den ersten Vormenschen liegen rund 60 Millionen Jahre."}
+    ]},
+  { id: "neu", name: "Erdneuzeit & unsere Vorfahren",
+    cards: [
+      {q:"Wann beginnt die Erdneuzeit?", a:"Vor etwa 65 Millionen Jahren (nach dem Aussterben der Saurier). Sie dauert bis heute."},
+      {q:"Nenne 3 Säugetierarten, die sich in der Erdneuzeit ausbreiten.", a:"Säbelzahntiger, Mammut, Hauerelefant (auch: Urpferdchen, Antilopen, Wollnashorn)."},
+      {q:"Welche Art von Pflanzen tritt in der Erdneuzeit auf?", a:"Blütenpflanzen (Pflanzen mit Blüten, Früchten und Samen) breiten sich aus."},
+      {q:"Welchen Vorfahren des Menschen stellt Lucy dar? Was konnte sie schon?", a:"Lucy ist ein Vormensch (Australopithecus), ca. 3,2 Millionen Jahre alt, gefunden in Äthiopien (Afrika). Sie konnte schon aufrecht auf zwei Beinen gehen."},
+      {q:"Nenne 3 Funde, die mit unseren Vorfahren zu tun haben.", a:"Lucy (Skelett, Äthiopien), der Toumaï-Schädel (ca. 7 Mio. Jahre, Tschad), versteinerte Fußspuren von Laetoli (ca. 3,6 Mio. Jahre, Tansania)."}
+    ],
+    quiz: [
+      {type:"mc", q:"Wann beginnt die Erdneuzeit?", options:["Vor ca. 65 Millionen Jahren","Vor ca. 250 Millionen Jahren","Vor ca. 4,6 Milliarden Jahren","Vor ca. 2.000 Jahren"], correct:0},
+      {type:"mc", q:"Welches Tier breitet sich in der Erdneuzeit aus?", options:["Säbelzahntiger","Trilobit","Tyrannosaurus","Ichthyosaurier"], correct:0},
+      {type:"mc", q:"Welche drei sind Säugetiere der Erdneuzeit?", options:["Mammut, Säbelzahntiger, Hauerelefant","Ammonit, Trilobit, Qualle","Archaeopteryx, Iguanodon, Megalosaurus","Libelle, Schachtelhalm, Baumfarn"], correct:0},
+      {type:"mc", q:"Welche Art von Pflanzen breitet sich in der Erdneuzeit aus?", options:["Blütenpflanzen","Baumfarne","Grünalgen","Schachtelhalme"], correct:0},
+      {type:"mc", q:"Welchen Vorfahren des Menschen stellt Lucy dar?", options:["Einen Vormenschen (Australopithecus)","Einen Neandertaler","Einen heutigen Schimpansen","Einen Saurier"], correct:0},
+      {type:"mc", q:"Was konnte Lucy schon?", options:["Aufrecht auf zwei Beinen gehen","Feuer machen","Sprechen","Höhlenbilder malen"], correct:0},
+      {type:"mc", q:"Wo wurde Lucy gefunden?", options:["In Äthiopien (Afrika)","In Österreich","In Mexiko","Auf den Galapagos-Inseln"], correct:0},
+      {type:"mc", q:"Welcher Fund hat mit unseren Vorfahren zu tun?", options:["Die Fußspuren von Laetoli","Der Burgess-Schiefer","Die Black Smokers","Ein Ammonit"], correct:0},
+      {type:"tf", q:"Lucy ist ungefähr 3,2 Millionen Jahre alt.", answer:true}
+    ]},
+  { id: "ueber", name: "Übergangsformen",
+    cards: [
+      {q:"Was sind Übergangsformen?", a:"Lebewesen, die Merkmale von zwei verschiedenen Tiergruppen haben. Sie zeigen, wie sich eine Gruppe aus der anderen entwickelt hat."},
+      {q:"Archaeopteryx – zwischen welchen Gruppen? Merkmale?", a:"Reptil → Vogel. Reptil: Zähne, lange Schwanzwirbelsäule, Krallen. Vogel: Federn, Flügel."},
+      {q:"Quastenflosser / Ichthyostega – zwischen welchen Gruppen? Merkmale?", a:"Fisch → Amphibium. Fisch: Schuppen, Schwanzflosse, Kiemen. Amphibium: Beine (knochige Flossen) und Lunge, um an Land zu gehen."},
+      {q:"Schnabeltier – zwischen welchen Gruppen? Merkmale?", a:"Reptil → Säugetier. Reptil: legt Eier. Säugetier: hat Fell und säugt seine Jungen mit Milch."}
+    ],
+    quiz: [
+      {type:"mc", q:"Was ist eine Übergangsform?", options:["Ein Lebewesen mit Merkmalen von zwei Tiergruppen","Ein besonders altes Fossil","Ein Tier, das von Land ins Wasser umzieht","Ein Fossil, mit dem man Gestein datiert"], correct:0},
+      {type:"mc", q:"Zwischen welchen Gruppen steht der Archaeopteryx?", options:["Reptilien und Vögel","Fische und Amphibien","Reptilien und Säugetiere","Insekten und Vögel"], correct:0},
+      {type:"mc", q:"Zwischen welchen Gruppen steht der Quastenflosser (bzw. Ichthyostega)?", options:["Fische und Amphibien","Reptilien und Vögel","Amphibien und Säugetiere","Fische und Vögel"], correct:0},
+      {type:"mc", q:"Zwischen welchen Gruppen steht das Schnabeltier?", options:["Reptilien und Säugetiere","Fische und Vögel","Amphibien und Fische","Vögel und Insekten"], correct:0},
+      {type:"mc", q:"Welches Merkmal zeigt beim Schnabeltier die Verwandtschaft zu den Reptilien?", options:["Es legt Eier","Es hat Fell","Es säugt seine Jungen","Es hat eine Lunge"], correct:0},
+      {type:"tf", q:"Das Schnabeltier hat ein Fell und säugt seine Jungen mit Milch.", answer:true},
+      {type:"mc", q:"Was brauchte ein Fisch, um an Land gehen zu können?", options:["Kräftige Flossen als Beine und eine Lunge","Federn und Flügel","Ein Fell","Einen Schnabel"], correct:0}
+    ]},
+  { id: "film", name: "Film & Powerpoint",
+    cards: [
+      {q:"Was bedeutet KT beim KT-Meteoriten? Wo schlug er ein? Welche Debatte gibt es?", a:"KT = Kreide–Tertiär (Grenze zwischen Erdmittelalter und Erdneuzeit). Einschlag vor ca. 65 Mio. Jahren auf der Halbinsel Yucatán in Mexiko (Chicxulub-Krater). Debatte: War der Meteorit allein schuld am Aussterben der Dinosaurier – oder auch riesige Vulkanausbrüche und Klimaveränderung?"},
+      {q:"Welche 2 Saurier zählen zu den ältesten Saurierfunden?", a:"Iguanodon und Megalosaurus."},
+      {q:"Was ist das Miller-Experiment? Was ist entstanden?", a:"Stanley Miller stellte 1953 im Labor die Uratmosphäre nach (Gase wie Methan, Ammoniak, Wasserstoff, Wasserdampf) und ließ Blitze (Strom) hindurch. Es entstanden Aminosäuren – Bausteine des Lebens (der Eiweiße)."},
+      {q:"Was sind Black Smokers und was vermutet man bei ihnen?", a:"Heiße Quellen (Schlote) am Meeresboden, aus denen schwarzes, mineralreiches Wasser wie Rauch strömt. Man vermutet, dass dort das erste Leben entstanden ist."},
+      {q:"Warum ist der Burgess-Schiefer für Paläontologen so interessant?", a:"Dort (Kanada, ca. 505 Mio. Jahre alt) fand man sehr viele, extrem gut erhaltene Fossilien früher Mehrzeller – sogar mit Weichteilen."},
+      {q:"Was haben wir Carl von Linné zu verdanken?", a:"Ein Ordnungssystem für Lebewesen: Jede Art hat einen zweiteiligen lateinischen Namen (z. B. Homo sapiens = Gattung + Art)."},
+      {q:"Welches Wort stammt von Charles Darwin? Was erkannte er?", a:"Selektion (natürliche Auslese): Die Lebewesen, die am besten an ihre Umwelt angepasst sind, überleben und vermehren sich (survival of the fittest)."},
+      {q:"Warum waren die Galapagos-Inseln für Darwin so wichtig?", a:"Er sah dort Finken (Darwinfinken) mit unterschiedlichen Schnabelformen – je nach Insel und Nahrung. Daran erkannte er, dass sich Arten an ihre Umwelt anpassen und verändern."}
+    ],
+    quiz: [
+      {type:"mc", q:"Wofür steht KT beim KT-Meteoriten?", options:["Kreide–Tertiär","Karbon–Trias","Kambrium–Tertiär","Kontinent–Tiefsee"], correct:0},
+      {type:"mc", q:"Wo schlug der KT-Meteorit vermutlich ein?", options:["In Mexiko (Halbinsel Yucatán)","In Österreich","In der Antarktis","In Australien"], correct:0},
+      {type:"mc", q:"Worüber wird beim KT-Meteoriten bis heute diskutiert?", options:["Ob er allein schuld am Aussterben der Dinosaurier war","Ob er aus Gold bestand","Ob er die Menschen ausgerottet hat","Ob er den Mond gebildet hat"], correct:0, explain:"Manche Forscher meinen, dass auch riesige Vulkanausbrüche und Klimaveränderung mitschuld waren."},
+      {type:"mc", q:"Welche 2 Saurier zählen zu den ältesten Saurierfunden?", options:["Iguanodon und Megalosaurus","Tyrannosaurus und Triceratops","Archaeopteryx und Ammonit","Ichthyosaurier und Trilobit"], correct:0},
+      {type:"mc", q:"Was entstand beim Miller-Experiment?", options:["Aminosäuren (Bausteine des Lebens)","Ein lebender Einzeller","Ein Dinosaurier-Ei","Sauerstoff"], correct:0},
+      {type:"mc", q:"Was hat Miller in seinem Experiment nachgestellt?", options:["Die Uratmosphäre mit Blitzen","Einen Meteoriteneinschlag","Einen Vulkanausbruch","Die Eiszeit"], correct:0},
+      {type:"mc", q:"Was sind Black Smokers?", options:["Heiße Quellen am Meeresboden","Rauchende Vulkane an Land","Schwarze Fossilien","Eine Dinosaurierart"], correct:0},
+      {type:"mc", q:"Was vermutet man bei den Black Smokers?", options:["Dass dort das erste Leben entstanden ist","Dass dort der Meteorit einschlug","Dass dort Dinosaurier gelebt haben","Dass dort Erdöl entsteht"], correct:0},
+      {type:"mc", q:"Warum ist der Burgess-Schiefer so interessant?", options:["Viele sehr gut erhaltene Fossilien früher Mehrzeller","Dort wurde Lucy gefunden","Dort schlug der KT-Meteorit ein","Dort lebte Darwin"], correct:0},
+      {type:"mc", q:"Was haben wir Carl von Linné zu verdanken?", options:["Zweiteilige lateinische Namen für alle Lebewesen","Die Evolutionstheorie","Das Miller-Experiment","Die Entdeckung von Lucy"], correct:0},
+      {type:"mc", q:"Welches Wort stammt von Charles Darwin?", options:["Selektion","Fossil","Atmosphäre","Mutation"], correct:0},
+      {type:"tf", q:"Laut Darwin überleben die Lebewesen, die am besten an ihre Umwelt angepasst sind.", answer:true},
+      {type:"mc", q:"Was beobachtete Darwin auf den Galapagos-Inseln?", options:["Finken mit unterschiedlichen Schnabelformen","Lebende Dinosaurier","Black Smokers","Den ersten Urvogel"], correct:0}
+    ]},
+  { id: "bilder", name: "Bilder-Steckbriefe",
+    cards: [
+      {q:"Ammonit – wie erkennst du ihn?", a:"Ausgestorbener Kopffüßer (Verwandter der Tintenfische) mit spiralförmig aufgerolltem Gehäuse. Leitfossil des Erdmittelalters."},
+      {q:"Trilobit – wie erkennst du ihn?", a:"„Dreilapper“: Gliederfüßer im Meer des Erdaltertums. Panzer in drei Teile gegliedert, viele Beinpaare. Leitfossil des Erdaltertums."},
+      {q:"Quastenflosser – wie erkennst du ihn?", a:"Großer Fisch mit fleischigen, quastenförmigen Flossen (mit Knochen darin). Vorfahre der Amphibien und lebendes Fossil."},
+      {q:"Ginkgo – wie erkennst du ihn?", a:"Baum mit fächerförmigen, in der Mitte eingeschnittenen Blättern. Lebendes Fossil."},
+      {q:"Ichthyosaurier – wie erkennst du ihn?", a:"„Fischsaurier“: Meeresreptil des Erdmittelalters, sieht aus wie ein Delfin – lange schmale Schnauze, große Augen, Rückenflosse."},
+      {q:"Hauerelefant – wie erkennst du ihn?", a:"Rüsseltier der Erdneuzeit mit nach unten gebogenen Stoßzähnen im Unterkiefer."},
+      {q:"Archaeopteryx – wie erkennst du ihn?", a:"Urvogel: Federn und Flügel, aber Zähne, Krallen an den Flügeln und ein langer Schwanz mit Wirbeln."}
+    ],
+    quiz: [
+      {type:"mc", q:"Wer bin ich? Spiralförmig aufgerolltes Gehäuse, Verwandter der Tintenfische, Leitfossil des Erdmittelalters.", options:["Ammonit","Trilobit","Ginkgo","Quastenflosser"], correct:0},
+      {type:"mc", q:"Wer bin ich? Panzer in drei Teile gegliedert, viele Beine, lebte im Meer des Erdaltertums.", options:["Trilobit","Ammonit","Ichthyosaurier","Hauerelefant"], correct:0},
+      {type:"mc", q:"Wer bin ich? Fisch mit fleischigen Flossen, Vorfahre der Amphibien, lebe heute noch.", options:["Quastenflosser","Ichthyosaurier","Trilobit","Archaeopteryx"], correct:0},
+      {type:"mc", q:"Wer bin ich? Baum mit fächerförmigen Blättern, ein lebendes Fossil.", options:["Ginkgo","Schachtelhalm","Baumfarn","Eiche"], correct:0},
+      {type:"mc", q:"Wer bin ich? Meeresreptil, sehe aus wie ein Delfin, lebte im Erdmittelalter.", options:["Ichthyosaurier","Quastenflosser","Ammonit","Megalosaurus"], correct:0},
+      {type:"mc", q:"Wer bin ich? Rüsseltier mit nach unten gebogenen Stoßzähnen im Unterkiefer.", options:["Hauerelefant","Mammut","Säbelzahntiger","Iguanodon"], correct:0},
+      {type:"mc", q:"Wer bin ich? Federn und Flügel – aber Zähne, Krallen und ein langer Schwanz.", options:["Archaeopteryx","Ichthyosaurier","Megalosaurus","Hauerelefant"], correct:0}
+    ]}
+  ]
+}];
+
+/* ========================= Helpers ========================= */
+const $ = s => document.querySelector(s);
+const app = $("#app");
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const shuffle = a => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+const pick = a => a[Math.floor(Math.random() * a.length)];
+const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+const lsGet = (k, d) => { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } };
+const lsSet = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} };
+const slug = s => (String(s).toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "fach").slice(0, 30);
+
+/* ========================= State ========================= */
+const DEFAULT_STATE = { v: 1, player: "Sami", points: 0, tds: 0, drives: 0, perfect: 0, drillBest: 0, topics: {}, cards: {}, badges: [] };
+let S = Object.assign({}, DEFAULT_STATE, lsGet("td_state", {}));
+let custom = lsGet("td_subjects", []);
+let db = null, progressRef = null, syncLabel = "Auf diesem Gerät gespeichert";
+let view = { name: "home" };
+let saveTimer = null;
+
+function save() {
+  lsSet("td_state", S);
+  if (progressRef) {
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(() => progressRef.set(JSON.parse(JSON.stringify(S))).catch(() => {}), 700);
+  }
+}
+const subjects = () => [...BUILTIN, ...custom];
+const getSubj = id => subjects().find(s => s.id === id);
+const getTopic = (s, id) => s.topics.find(t => t.id === id);
+const tKey = (s, t) => s.id + "|" + t.id;
+
+/* ========================= Questions ========================= */
+function pool(subj, topic) {
+  if (topic.quiz && topic.quiz.length) return topic.quiz.map(q => Object.assign({}, q));
+  const all = subj.topics.flatMap(t => (t.cards || []).map(c => c.a));
+  return (topic.cards || []).map(c => {
+    const wrong = (c.wrong && c.wrong.length) ? c.wrong.slice(0, 3) : shuffle([...new Set(all.filter(a => a !== c.a))]).slice(0, 3);
+    if (!wrong.length) return { type: "self", q: c.q, a: c.a };
+    return { type: "mc", q: c.q, options: [c.a, ...wrong], correct: 0 };
+  });
+}
+const subjectPool = subj => subj.topics.flatMap(t => pool(subj, t));
+
+/* ========================= Badges ========================= */
+const BADGES = [
+  { id: "first", ic: "TD", name: "Erster Touchdown", desc: "Einen Drive bis in die Endzone gebracht.", ok: s => s.tds >= 1 },
+  { id: "perfect", ic: "2PT", name: "Perfekter Drive", desc: "Einen Drive ohne Fehler geschafft.", ok: s => s.perfect >= 1 },
+  { id: "five", ic: "5", name: "Fünf Touchdowns", desc: "Insgesamt 5 Touchdowns.", ok: s => s.tds >= 5 },
+  { id: "allbio", ic: "BIO", name: "Ganzes Playbook", desc: "In jedem Biologie-Thema einen Touchdown.", ok: s => BUILTIN[0].topics.every(t => s.topics["bio|" + t.id]?.td) },
+  { id: "huddle", ic: "H", name: "Huddle-Profi", desc: "30 Karteikarten als „kann ich“ markiert.", ok: s => Object.values(s.cards).filter(Boolean).length >= 30 },
+  { id: "drill", ic: "2:00", name: "Two-Minute Hero", desc: "2 Touchdowns in einem Two-Minute Drill.", ok: s => s.drillBest >= 2 },
+  { id: "mvp", ic: "MVP", name: "MVP", desc: "100 Punkte gesammelt.", ok: s => s.points >= 100 }
+];
+function checkBadges() {
+  const fresh = [];
+  for (const b of BADGES) if (!S.badges.includes(b.id) && b.ok(S)) { S.badges.push(b.id); fresh.push(b); }
+  return fresh;
+}
+
+/* ========================= Pieces ========================= */
+function countdown(test) {
+  if (!test) return "";
+  const t = new Date(test + "T00:00:00"), n = new Date(); n.setHours(0, 0, 0, 0);
+  const d = Math.round((t - n) / 864e5);
+  if (d < 0) return "";
+  if (d === 0) return "Heute ist Test – du schaffst das!";
+  if (d === 1) return "Morgen ist Test!";
+  return `Noch ${d} Tage bis zum Test`;
+}
+const fmtDate = s => { if (!s) return ""; const [y, m, d] = s.split("-"); return `${+d}.${+m}.${y}`; };
+
+function board(extra) {
+  const next = subjects().filter(s => countdown(s.test)).sort((a, b) => a.test.localeCompare(b.test))[0];
+  const tick = extra || (next ? `<b>${esc(next.name)}</b> · ${countdown(next.test)} (${fmtDate(next.test)})` : "Wähle ein Fach und starte deinen Drive.");
+  return `<section class="board" aria-label="Anzeigetafel">
+    <div class="team"><small>Quarterback</small>${esc(S.player)}</div>
+    <div class="digit">${S.points}<small>Punkte</small></div>
+    <div class="digit">${S.tds}<small>TDs</small></div>
+    <div class="ticker">${tick}</div>
+  </section>`;
+}
+function subjProgress(s) {
+  const cards = s.topics.reduce((n, t) => n + (t.cards || []).length, 0);
+  const known = s.topics.reduce((n, t) => n + (t.cards || []).filter((_, i) => S.cards[tKey(s, t) + "|" + i]).length, 0);
+  const tds = s.topics.filter(t => S.topics[tKey(s, t)]?.td).length;
+  return { cards, known, tds, topics: s.topics.length };
+}
+const BALL = `<svg viewBox="0 0 40 24" aria-hidden="true"><ellipse cx="20" cy="12" rx="19" ry="11" fill="#8a4a22"/><path d="M5 8 Q20 1 35 8 M5 16 Q20 23 35 16" stroke="#5e3015" stroke-width="1.5" fill="none"/><path d="M13 12h14M16 9.5v5M19 9.5v5M22 9.5v5M25 9.5v5" stroke="#f2f0e6" stroke-width="1.6" stroke-linecap="round"/></svg>`;
+const FLAG = `<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 15V2" stroke="#f2f0e6" stroke-width="1.5"/><path d="M3 2h10l-2 3 2 3H3z" fill="#f6c431"/></svg>`;
+function field(yards, flagAt) {
+  const nums = [10, 20, 30, 40, 50, 40, 30, 20, 10].map((n, i) => `<span class="yd" style="left:${(i + 1) * 10}%">${n}</span>`).join("");
+  const y = Math.max(0, Math.min(100, yards));
+  return `<div class="field" role="img" aria-label="Ball an der ${yardText(y)}">
+    <div class="ez home">${esc(S.player.toUpperCase().slice(0, 8))}</div>
+    <div class="turf">${nums}
+      <div class="los" style="left:${y}%"></div>
+      ${flagAt != null ? `<div class="flagdrop" style="left:${flagAt}%">${FLAG}</div>` : ""}
+      <div class="ball" style="left:${y}%">${BALL}</div>
+    </div>
+    <div class="ez away">ENDZONE</div>
+  </div>`;
+}
+const yardText = y => y >= 100 ? "Endzone" : y < 50 ? `eigenen ${Math.round(y)}` : y === 50 ? "Mittellinie" : `gegnerischen ${Math.round(100 - y)}`;
+
+/* ========================= Views ========================= */
+function go(name, params = {}) {
+  if (D && D.timer) { clearInterval(D.timer); D.timer = null; }
+  view = Object.assign({ name }, params);
+  render();
+  window.scrollTo({ top: 0, behavior: "instant" in window ? "instant" : "auto" });
+}
+function render() {
+  const v = view.name;
+  if (v === "home") return renderHome();
+  if (v === "subject") return renderSubject();
+  if (v === "huddle") return renderHuddle();
+  if (v === "drive") return renderDrive();
+  if (v === "add") return renderAdd();
+  if (v === "locker") return renderLocker();
+}
+
+function renderHome() {
+  const cards = subjects().map(s => {
+    const p = subjProgress(s);
+    const pct = p.cards ? Math.round(p.known / p.cards * 100) : 0;
+    return `<button class="subj" data-act="subject" data-s="${esc(s.id)}">
+      <span class="eyebrow">${s.test ? "Test am " + fmtDate(s.test) : "Fach"}</span>
+      <h2>${esc(s.name)}</h2>
+      <span class="meta">${p.topics} Spielzüge · ${p.tds}/${p.topics} Touchdowns</span>
+      <span class="bar" aria-hidden="true"><i style="width:${pct}%"></i></span>
+      <span class="meta">${p.known}/${p.cards} Karten gekonnt</span>
+    </button>`;
+  }).join("");
+  app.innerHTML = `${board()}
+    <div class="spread"><h1>Dein Playbook</h1><button class="btn small ghost" data-act="locker">Trophäen</button></div>
+    <div class="grid">${cards}
+      <button class="subj add" data-act="add"><span class="plus">+</span><span class="eyebrow">Fach hinzufügen</span></button>
+    </div>
+    <p class="sync">${esc(syncLabel)}</p>`;
+}
+
+function renderSubject() {
+  const s = getSubj(view.s); if (!s) return go("home");
+  const p = subjProgress(s);
+  const rows = s.topics.map((t, i) => {
+    const st = S.topics[tKey(s, t)] || {};
+    const known = (t.cards || []).filter((_, k) => S.cards[tKey(s, t) + "|" + k]).length;
+    const nq = pool(s, t).length;
+    return `<div class="play">
+      <span class="no">${i + 1}</span>
+      <div class="info"><h3>${esc(t.name)}</h3>
+        <div class="chips">
+          <span class="chip ${known && known === (t.cards || []).length ? "ok" : ""}">Karten ${known}/${(t.cards || []).length}</span>
+          <span class="chip">${nq} Fragen</span>
+          ${st.td ? `<span class="chip td">Touchdown</span>` : ""}
+          ${st.perfect ? `<span class="chip td">Perfekt</span>` : ""}
+        </div></div>
+      <div class="actions">
+        ${(t.cards || []).length ? `<button class="btn small" data-act="huddle" data-s="${esc(s.id)}" data-t="${esc(t.id)}">Huddle</button>` : ""}
+        ${nq ? `<button class="btn small primary" data-act="drive" data-s="${esc(s.id)}" data-t="${esc(t.id)}">Drive</button>` : ""}
+      </div></div>`;
+  }).join("");
+  app.innerHTML = `${board(s.test && countdown(s.test) ? `<b>${esc(s.name)}</b> · ${countdown(s.test)} (${fmtDate(s.test)})` : `<b>${esc(s.name)}</b> · ${p.tds}/${p.topics} Touchdowns`)}
+    <button class="back" data-act="home">← Alle Fächer</button>
+    <div class="spread"><h1>${esc(s.name)}</h1>
+      ${s.builtin ? "" : `<div class="row"><button class="btn small ghost" data-act="edit" data-s="${esc(s.id)}">Bearbeiten</button><button class="btn small danger" data-act="askdel">Löschen</button></div>`}
+    </div>
+    ${view.confirmDel ? `<div class="confirm"><span>„${esc(s.name)}“ wirklich löschen? Der Fortschritt bleibt erhalten.</span><div class="row"><button class="btn small ghost" data-act="canceldel">Abbrechen</button><button class="btn small danger" data-act="del" data-s="${esc(s.id)}">Ja, löschen</button></div></div>` : ""}
+    <p class="muted"><b>Huddle</b> = Karteikarten lernen. <b>Drive</b> = Quiz: Jede richtige Antwort bringt Raumgewinn – beantworte alle Fragen und du landest in der Endzone.</p>
+    <div class="plays">${rows}</div>
+    ${subjectPool(s).length >= 4 ? `<section class="drill">
+      <div><span class="eyebrow" style="color:var(--post)">Generalprobe</span><h2>Two-Minute Drill</h2>
+      <p>2 Minuten, Fragen aus allen Themen gemischt. Jede richtige Antwort = 10 Yards. Wie viele Touchdowns schaffst du?</p></div>
+      <button class="btn primary" data-act="drill" data-s="${esc(s.id)}">Snap!</button>
+    </section>` : ""}`;
+}
+
+/* ---------- Huddle (Karteikarten) ---------- */
+let H = null;
+function startHuddle(sid, tid) {
+  const s = getSubj(sid), t = getTopic(s, tid);
+  H = { s, t, queue: shuffle(t.cards.map((c, i) => i)), flip: false, done: 0, total: t.cards.length, gained: 0 };
+  go("huddle");
+}
+function renderHuddle() {
+  const { s, t } = H;
+  if (!H.queue.length) {
+    const known = t.cards.filter((_, i) => S.cards[tKey(s, t) + "|" + i]).length;
+    app.innerHTML = `${board()}
+      <section class="card td"><span class="eyebrow">Huddle beendet</span><h2>Break! Alle Karten durch.</h2>
+        <p class="pts">${known} von ${t.cards.length} Karten kannst du${H.gained ? ` · <b>+${H.gained}</b> Punkte` : ""}</p>
+        <div class="row" style="justify-content:center">
+          <button class="btn" data-act="huddle" data-s="${esc(s.id)}" data-t="${esc(t.id)}">Nochmal</button>
+          <button class="btn primary" data-act="drive" data-s="${esc(s.id)}" data-t="${esc(t.id)}">Jetzt der Drive</button>
+        </div>
+        <button class="back" data-act="subject" data-s="${esc(s.id)}" style="align-self:center">← Zum Playbook</button>
+      </section>`;
+    return;
+  }
+  const i = H.queue[0], c = t.cards[i];
+  app.innerHTML = `${board(`<b>Huddle</b> · ${esc(t.name)} · noch ${H.queue.length} Karte${H.queue.length === 1 ? "" : "n"}`)}
+    <button class="back" data-act="subject" data-s="${esc(s.id)}">← ${esc(s.name)}</button>
+    <button class="flash ${H.flip ? "flip" : ""}" data-act="flip" aria-label="Karte umdrehen">
+      <div class="flash-in">
+        <div class="face"><span class="hint">Frage · tippen zum Umdrehen</span><p class="big">${esc(c.q)}</p></div>
+        <div class="face ans"><span class="hint">Antwort</span><p class="big">${esc(c.a)}</p></div>
+      </div>
+    </button>
+    ${H.flip ? `<div class="row" style="justify-content:center">
+      <button class="btn" data-act="hagain">Nochmal üben</button>
+      <button class="btn primary" data-act="hknow">Kann ich</button></div>`
+      : `<div class="row" style="justify-content:center"><button class="btn primary" data-act="flip">Antwort zeigen</button></div>`}`;
+}
+
+/* ---------- Drive (Quiz) ---------- */
+let D = null;
+const CALLS_OK = ["Pass komplett!", "Snap, Pass, Fang!", "Schöner Lauf!", "Hand-off – Raumgewinn!", "Perfekter Spiralwurf!", "Durch die Lücke!"];
+const CALLS_BIG = ["Big Play!", "Long Pass – was für ein Wurf!", "Niemand hält dich auf!"];
+const CALLS_BAD = ["Flagge gezogen!", "Incomplete!", "Sack! Kein Raumgewinn.", "Pass abgewehrt!"];
+const DOWNS = ["1st", "2nd", "3rd", "4th"];
+
+function startDrive(sid, tid) {
+  const s = getSubj(sid), t = getTopic(s, tid);
+  const qs = shuffle(pool(s, t)).slice(0, 12);
+  D = { mode: "drive", s, t, queue: qs, total: qs.length, step: 80 / qs.length, yards: 20, down: 0, wrongs: 0, streak: 0, correct: 0, fb: null, cur: null, flagAt: null, phase: "play" };
+  nextQ(); go("drive");
+}
+function startDrill(sid) {
+  const s = getSubj(sid);
+  D = { mode: "drill", s, t: null, src: shuffle(subjectPool(s)), queue: [], yards: 20, down: 0, wrongs: 0, streak: 0, correct: 0, tdCount: 0, time: 120, fb: null, cur: null, flagAt: null, phase: "play" };
+  D.queue = D.src.slice();
+  nextQ(); go("drive");
+  D.timer = setInterval(tick, 1000);
+}
+function tick() {
+  if (!D || D.mode !== "drill" || D.phase !== "play") return;
+  if (D.fb && !D.fb.ok) return; // pausiert, solange die Auflösung gelesen wird
+  D.time--;
+  const el = $("#timer");
+  if (el) { el.textContent = fmtTime(D.time); el.classList.toggle("low", D.time <= 15); }
+  if (D.time <= 0) { clearInterval(D.timer); D.timer = null; endDrill(); }
+}
+const fmtTime = s => `${Math.floor(Math.max(0, s) / 60)}:${String(Math.max(0, s) % 60).padStart(2, "0")}`;
+
+function nextQ() {
+  if (D.mode === "drill" && !D.queue.length) D.queue = shuffle(D.src);
+  const item = D.queue.shift();
+  D.fb = null; D.flagAt = null;
+  if (!item) { D.cur = null; return; }
+  const cur = { item };
+  if (item.type === "mc") cur.opts = shuffle(item.options.map((o, i) => ({ text: o, ok: i === item.correct })));
+  if (item.type === "order") { cur.pool = shuffle(item.items.map((x, i) => ({ text: x, i }))); cur.ans = []; if (cur.pool.every((p, k) => p.i === k)) cur.pool.reverse(); }
+  D.cur = cur;
+}
+
+function answer(ok, solution) {
+  const item = D.cur.item;
+  D.cur.done = true;
+  if (ok) {
+    D.correct++; D.streak++; D.down = 0;
+    const gain = D.mode === "drill" ? 10 : D.step;
+    D.yards += gain;
+    const call = D.streak >= 3 ? pick(CALLS_BIG) : pick(CALLS_OK);
+    D.fb = { ok: true, call, text: `+${Math.round(gain)} Yards`, explain: item.explain };
+  } else {
+    D.wrongs++; D.streak = 0; D.down++;
+    D.flagAt = Math.min(99, D.yards + 4);
+    let call = pick(CALLS_BAD), extra = "";
+    if (D.down >= 4) { call = "Turnover on Downs!"; extra = "Vier Fehlversuche in Folge – kurz durchatmen, Coach sagt: weiter geht's."; D.down = 0; }
+    if (D.mode === "drive") D.queue.push(item); // Frage kommt später nochmal
+    D.fb = { ok: false, call, text: extra, solution, explain: item.explain };
+  }
+  if (D.mode === "drill" && D.yards >= 100) {
+    D.tdCount++; S.points += 6; S.tds++; D.fb.call = "TOUCHDOWN! +6"; D.yards = 20; burst(); save();
+  }
+  render();
+  if (D.mode === "drill" && ok) setTimeout(() => { if (D && D.fb && D.fb.ok && D.phase === "play") { nextQ(); render(); } }, 750);
+  else setTimeout(() => $("#next")?.focus(), 30);
+}
+function cont() {
+  if (D.mode === "drive" && !D.queue.length && D.fb?.ok) { D.yards = 100; touchdown(); return; }
+  nextQ(); render();
+}
+
+function touchdown() {
+  D.phase = "td";
+  const k = tKey(D.s, D.t);
+  const st = S.topics[k] || {};
+  st.td = true; st.plays = (st.plays || 0) + 1;
+  D.earned = 6; S.points += 6; S.tds++; S.drives++;
+  if (D.wrongs === 0) { st.perfect = true; S.perfect++; D.earned += 2; S.points += 2; D.bonus = "two"; }
+  else D.bonus = "xp";
+  S.topics[k] = st;
+  D.newBadges = checkBadges();
+  save(); burst(); render();
+}
+function startXP() {
+  const pl = shuffle(subjectPool(D.s));
+  D.phase = "xp"; D.queue = []; D.cur = null;
+  D.cur = { item: pl[0] };
+  const it = pl[0];
+  if (it.type === "mc") D.cur.opts = shuffle(it.options.map((o, i) => ({ text: o, ok: i === it.correct })));
+  if (it.type === "order") { D.cur.pool = shuffle(it.items.map((x, i) => ({ text: x, i }))); D.cur.ans = []; }
+  D.fb = null; render();
+}
+function xpAnswer(ok, solution) {
+  D.cur.done = true;
+  if (ok) { D.earned++; S.points++; D.fb = { ok: true, call: "Extra Point – gut!", text: "+1 Punkt", explain: D.cur.item.explain }; }
+  else D.fb = { ok: false, call: "Daneben!", text: "Kein Extra Point, aber der Touchdown zählt.", solution, explain: D.cur.item.explain };
+  D.newBadges = (D.newBadges || []).concat(checkBadges());
+  save(); render();
+}
+function endDrill() {
+  D.phase = "drillend";
+  S.drillBest = Math.max(S.drillBest, D.tdCount);
+  S.points += D.correct; // 1 Punkt je richtige Antwort
+  D.newBadges = checkBadges();
+  save(); if (D.tdCount) burst(); render();
+}
+
+function questionHTML() {
+  const { item, opts } = D.cur, done = D.cur.done;
+  const tag = { mc: "Passspiel · Wähle die richtige Antwort", tf: "Quick Snap · Stimmt das?", order: "Spielzug-Reihenfolge · Tippe in der richtigen Reihenfolge", self: "Selbstcheck" }[item.type];
+  let body = "";
+  if (item.type === "mc") {
+    body = `<div class="opts">${opts.map((o, i) => `<button class="opt ${done ? (o.ok ? "right" : (D.cur.pickedI === i ? "wrong" : "")) : ""}" data-act="mc" data-i="${i}" ${done ? "disabled" : ""}><span class="k">${i + 1}</span><span>${esc(o.text)}</span></button>`).join("")}</div>`;
+  } else if (item.type === "tf") {
+    const cls = v => done ? (v === item.answer ? "right" : (D.cur.picked === v ? "wrong" : "")) : "";
+    body = `<div class="tf"><button class="opt ${cls(true)}" data-act="tf" data-v="1" ${done ? "disabled" : ""}>Stimmt</button><button class="opt ${cls(false)}" data-act="tf" data-v="0" ${done ? "disabled" : ""}>Stimmt nicht</button></div>`;
+  } else if (item.type === "order") {
+    const c = D.cur;
+    body = `<div class="order-ans" aria-label="Deine Reihenfolge">${c.ans.map((p, k) => `<button class="tok ${done ? (p.i === k ? "right" : "wrong") : ""}" data-act="ounpick" data-k="${k}" ${done ? "disabled" : ""}>${esc(p.text)}</button>`).join("") || `<span class="muted" style="padding:8px">Tippe unten die Begriffe in der richtigen Reihenfolge an.</span>`}</div>
+      ${done ? "" : `<div class="order-pool">${c.pool.map((p, k) => `<button class="tok" data-act="opick" data-k="${k}">${esc(p.text)}</button>`).join("")}</div>
+      <div class="row"><button class="btn primary" data-act="ocheck" ${c.pool.length ? "disabled" : ""}>Prüfen</button><button class="btn ghost small" data-act="oreset">Zurücksetzen</button></div>`}`;
+  } else if (item.type === "self") {
+    body = D.cur.shown ? `<p class="sol">${esc(item.a)}</p>${done ? "" : `<div class="row"><button class="btn" data-act="selfno">Nicht gewusst</button><button class="btn primary" data-act="selfyes">Gewusst</button></div>`}`
+      : `<button class="btn primary" data-act="selfshow">Antwort zeigen</button>`;
+  }
+  let fb = "";
+  if (D.fb) {
+    const f = D.fb;
+    const last = D.phase === "xp" || (D.mode === "drive" && !D.queue.length && f.ok);
+    fb = `<div class="feedback ${f.ok ? "good" : "bad"}"><span class="call">${esc(f.call)}</span>
+      ${f.text ? `<span>${esc(f.text)}</span>` : ""}
+      ${!f.ok && f.solution ? `<span class="sol">Richtig ist: ${esc(f.solution)}</span>` : ""}
+      ${f.explain ? `<span class="muted">${esc(f.explain)}</span>` : ""}
+      ${!f.ok && D.mode === "drive" && D.phase === "play" ? `<span class="muted">Diese Frage kommt im Drive nochmal.</span>` : ""}
+      ${D.mode === "drill" && f.ok ? "" : `<div class="row"><button class="btn primary" id="next" data-act="${D.phase === "xp" ? "xpdone" : "next"}">${D.phase === "xp" ? "Weiter" : last ? "In die Endzone!" : "Nächster Snap"}</button></div>`}
+    </div>`;
+  }
+  return `<section class="card"><span class="qtag">${tag}</span><p class="q">${esc(item.q)}</p>${body}${fb}</section>`;
+}
+
+function renderDrive() {
+  const d = D, s = d.s;
+  if (d.phase === "td") {
+    app.innerHTML = `${board()}${field(100)}
+      <section class="card td"><span class="eyebrow">${esc(d.t.name)}</span><h1>Touchdown!</h1>
+        <p class="pts"><b>+6</b> Punkte${d.bonus === "two" ? ` · Perfekter Drive: <b>+2</b> (2-Point Conversion)` : ""}</p>
+        <div class="statgrid"><div class="stat"><b>${d.total}</b><span>Fragen</span></div><div class="stat"><b>${d.wrongs}</b><span>Flaggen</span></div><div class="stat"><b>${S.points}</b><span>Punkte gesamt</span></div></div>
+        ${badgeNote(d.newBadges)}
+        <div class="row" style="justify-content:center">
+          ${d.bonus === "xp" ? `<button class="btn primary" data-act="xp">Extra Point versuchen (+1)</button>` : ""}
+          <button class="btn ${d.bonus === "xp" ? "" : "primary"}" data-act="drive" data-s="${esc(s.id)}" data-t="${esc(d.t.id)}">Neuer Drive</button>
+          <button class="btn ghost" data-act="subject" data-s="${esc(s.id)}">Zum Playbook</button>
+        </div></section>`;
+    return;
+  }
+  if (d.phase === "xp") {
+    app.innerHTML = `${board(`<b>Extra Point</b> · Eine Bonusfrage aus ganz ${esc(s.name)}`)}${questionHTML()}`;
+    return;
+  }
+  if (d.phase === "xpdone") {
+    app.innerHTML = `${board()}<section class="card td"><h2>Spiel vorbei – starke Leistung!</h2>
+      <p class="pts">Dieser Drive: <b>+${d.earned}</b> Punkte</p>${badgeNote(d.newBadges)}
+      <div class="row" style="justify-content:center"><button class="btn primary" data-act="subject" data-s="${esc(s.id)}">Zum Playbook</button>
+      <button class="btn" data-act="drive" data-s="${esc(s.id)}" data-t="${esc(d.t.id)}">Neuer Drive</button></div></section>`;
+    return;
+  }
+  if (d.phase === "drillend") {
+    app.innerHTML = `${board()}<section class="card td"><span class="eyebrow">Two-Minute Drill · ${esc(s.name)}</span>
+      <h1>${d.tdCount ? (d.tdCount === 1 ? "1 Touchdown!" : d.tdCount + " Touchdowns!") : "Abpfiff!"}</h1>
+      <div class="statgrid"><div class="stat"><b>${d.correct}</b><span>Richtig</span></div><div class="stat"><b>${d.wrongs}</b><span>Flaggen</span></div><div class="stat"><b>${d.tdCount * 6 + d.correct}</b><span>Punkte</span></div><div class="stat"><b>${S.drillBest}</b><span>Rekord TDs</span></div></div>
+      ${badgeNote(d.newBadges)}
+      <div class="row" style="justify-content:center"><button class="btn primary" data-act="drill" data-s="${esc(s.id)}">Nochmal 2 Minuten</button>
+      <button class="btn ghost" data-act="subject" data-s="${esc(s.id)}">Zum Playbook</button></div></section>`;
+    return;
+  }
+  const togo = Math.max(0, 100 - d.yards);
+  const dd = d.mode === "drive"
+    ? `<span><b>${DOWNS[d.down]}</b> &amp; ${togo <= 10 ? "Goal" : 10}</span><span>Ball an der ${yardText(d.yards)}</span><span>Frage ${Math.min(d.correct + 1, d.total)} von ${d.total}</span>`
+    : `<span><b>${DOWNS[d.down]}</b> &amp; ${togo <= 10 ? "Goal" : 10}</span><span>Touchdowns: <b>${d.tdCount}</b></span><span id="timer" class="timer ${d.time <= 15 ? "low" : ""}">${fmtTime(d.time)}</span>`;
+  app.innerHTML = `${board(`<b>${d.mode === "drill" ? "Two-Minute Drill" : esc(d.t.name)}</b> · ${esc(s.name)}`)}
+    <div class="spread"><button class="back" data-act="subject" data-s="${esc(s.id)}">← Drive abbrechen</button></div>
+    ${field(d.yards, d.flagAt)}
+    <div class="down">${dd}</div>
+    ${d.cur ? questionHTML() : ""}`;
+}
+function badgeNote(list) {
+  if (!list || !list.length) return "";
+  return `<p class="okmsg">Neue Trophäe: ${list.map(b => esc(b.name)).join(", ")}</p>`;
+}
+
+function solutionText(item) {
+  if (item.type === "mc") return item.options[item.correct];
+  if (item.type === "tf") return item.answer ? "Stimmt" : "Stimmt nicht";
+  if (item.type === "order") return item.items.join(" → ");
+  if (item.type === "self") return item.a;
+}
+function judge(ok) {
+  const sol = solutionText(D.cur.item);
+  if (D.phase === "xp") xpAnswer(ok, sol); else answer(ok, sol);
+}
+
+/* ---------- Fach hinzufügen ---------- */
+const SAMPLE = `# Englisch Vokabeln Unit 3
+F: der Bauernhof
+A: the farm
+F: die Ernte
+A: the harvest
+X: the hammer
+X: the hedge
+
+# Unregelmäßige Verben
+F: go – went – ?
+A: gone`;
+function subjectToText(s) {
+  return s.topics.map(t => `# ${t.name}\n` + (t.cards || []).map(c => `F: ${c.q}\nA: ${c.a}` + (c.wrong || []).map(w => `\nX: ${w}`).join("")).join("\n")).join("\n\n");
+}
+function parseText(txt) {
+  const topics = []; let t = null, c = null; const errs = [];
+  const lines = txt.split(/\r?\n/);
+  const ensureTopic = () => { if (!t) { t = { name: "Allgemein", cards: [] }; topics.push(t); } };
+  lines.forEach((raw, n) => {
+    const line = raw.trim(); if (!line) return;
+    if (line.startsWith("#")) { t = { name: line.replace(/^#+\s*/, "") || "Thema", cards: [] }; topics.push(t); c = null; return; }
+    const m = line.match(/^([FAX])\s*:\s*(.*)$/i);
+    if (!m) { if (c && c.a !== undefined) c.a += " " + line; else if (c) c.q += " " + line; else errs.push(`Zeile ${n + 1}: Bitte mit „F:“, „A:“, „X:“ oder „#“ beginnen.`); return; }
+    const k = m[1].toUpperCase(), val = m[2].trim();
+    if (k === "F") { ensureTopic(); c = { q: val }; t.cards.push(c); }
+    else if (k === "A") { if (!c) errs.push(`Zeile ${n + 1}: Antwort ohne Frage davor.`); else c.a = val; }
+    else if (k === "X") { if (!c) errs.push(`Zeile ${n + 1}: Falsche Antwort ohne Frage davor.`); else (c.wrong = c.wrong || []).push(val); }
+  });
+  topics.forEach(tp => tp.cards.forEach(cd => { if (!cd.a) errs.push(`„${cd.q.slice(0, 40)}“ hat keine Antwort (A:).`); }));
+  const clean = topics.filter(tp => tp.cards.length).map((tp, i) => ({ id: slug(tp.name) + "-" + i, name: tp.name, cards: tp.cards.map(cd => cd.wrong ? { q: cd.q, a: cd.a || "", wrong: cd.wrong } : { q: cd.q, a: cd.a || "" }) }));
+  return { topics: clean, errs };
+}
+function renderAdd() {
+  const ed = view.edit ? getSubj(view.edit) : null;
+  app.innerHTML = `${board()}
+    <button class="back" data-act="${ed ? "subject" : "home"}" ${ed ? `data-s="${esc(ed.id)}"` : ""}>← Zurück</button>
+    <h1>${ed ? "Fach bearbeiten" : "Neues Fach"}</h1>
+    <div class="formgrid">
+      <label for="f-name">Name des Fachs<input id="f-name" value="${esc(ed ? ed.name : "")}" placeholder="z. B. Englisch"></label>
+      <label for="f-test">Testdatum (optional)<input id="f-test" type="date" value="${esc(ed ? ed.test || "" : "")}"></label>
+    </div>
+    <div class="help">
+      <b>So schreibst du die Fragen</b>
+      <span><code># Thema</code> startet einen neuen Spielzug (Thema).</span>
+      <span><code>F:</code> Frage &nbsp; <code>A:</code> richtige Antwort &nbsp; <code>X:</code> falsche Antwort (optional, bis zu 3).</span>
+      <span class="muted">Ohne <code>X:</code> nimmt die App automatisch Antworten anderer Fragen als falsche Auswahl. Aus jeder Frage wird eine Karteikarte (Huddle) und eine Quizfrage (Drive).</span>
+    </div>
+    <label for="f-text">Fragen<textarea id="f-text" spellcheck="false" placeholder="${esc(SAMPLE)}">${esc(ed ? subjectToText(ed) : "")}</textarea></label>
+    <p id="f-preview" class="muted">Noch keine Fragen.</p>
+    <div class="row"><button class="btn primary" data-act="savesubj">${ed ? "Änderungen speichern" : "Fach anlegen"}</button>
+    ${ed ? "" : `<button class="btn ghost small" data-act="sample">Beispiel einfügen</button>`}</div>`;
+  updatePreview();
+}
+function updatePreview() {
+  const el = $("#f-preview"), ta = $("#f-text"); if (!el || !ta) return;
+  if (!ta.value.trim()) { el.className = "muted"; el.textContent = "Noch keine Fragen."; return; }
+  const r = parseText(ta.value);
+  const n = r.topics.reduce((a, t) => a + t.cards.length, 0);
+  if (r.errs.length) { el.className = "err"; el.textContent = r.errs.slice(0, 3).join(" "); }
+  else { el.className = "okmsg"; el.textContent = `${r.topics.length} Thema${r.topics.length === 1 ? "" : "en"}, ${n} Frage${n === 1 ? "" : "n"} erkannt.`; }
+}
+async function saveSubject() {
+  const name = $("#f-name").value.trim(), test = $("#f-test").value, r = parseText($("#f-text").value);
+  const el = $("#f-preview");
+  if (!name) { el.className = "err"; el.textContent = "Bitte gib dem Fach einen Namen."; $("#f-name").focus(); return; }
+  if (r.errs.length || !r.topics.length) { el.className = "err"; el.textContent = r.errs[0] || "Bitte mindestens eine Frage mit F: und A: eingeben."; return; }
+  let id = view.edit || slug(name);
+  if (!view.edit) { let k = id, n = 2; while (getSubj(k)) k = id + "-" + n++; id = k; }
+  const data = { name, test: test || "", topics: r.topics, updated: Date.now() };
+  const local = () => { custom = custom.filter(s => s.id !== id).concat([{ id, ...data }]); lsSet("td_subjects", custom); };
+  if (db) {
+    try { await db.collection("subjects").doc(id).set(data); local(); }
+    catch (e) { el.className = "err"; el.textContent = "Speichern hat nicht geklappt (" + (e?.message || e?.code || "Fehler") + "). Bitte nochmal versuchen."; return; }
+  } else local();
+  go("subject", { s: id });
+}
+async function deleteSubject(id) {
+  if (db) { try { await db.collection("subjects").doc(id).delete(); } catch (e) {} }
+  custom = custom.filter(s => s.id !== id); lsSet("td_subjects", custom);
+  go("home");
+}
+
+/* ---------- Trophäen ---------- */
+function renderLocker() {
+  checkBadges();
+  app.innerHTML = `${board()}
+    <button class="back" data-act="home">← Alle Fächer</button>
+    <h1>Trophäenschrank</h1>
+    <div class="statgrid"><div class="stat"><b>${S.points}</b><span>Punkte</span></div><div class="stat"><b>${S.tds}</b><span>Touchdowns</span></div><div class="stat"><b>${S.perfect}</b><span>Perfekte Drives</span></div><div class="stat"><b>${Object.values(S.cards).filter(Boolean).length}</b><span>Karten gekonnt</span></div></div>
+    <div class="badges">${BADGES.map(b => `<div class="badge ${S.badges.includes(b.id) ? "on" : ""}"><span class="ic">${b.ic}</span><div><b>${esc(b.name)}</b><span>${esc(b.desc)}</span></div></div>`).join("")}</div>
+    <h2>Spieler</h2>
+    <div class="row" style="align-items:flex-end"><label for="f-player" style="flex:1;min-width:200px">Name auf der Anzeigetafel<input id="f-player" value="${esc(S.player)}" maxlength="20"></label><button class="btn" data-act="saveplayer">Speichern</button></div>
+    ${view.confirmReset ? `<div class="confirm"><span>Alle Punkte, Touchdowns und Trophäen auf 0 setzen?</span><div class="row"><button class="btn small ghost" data-act="cancelreset">Abbrechen</button><button class="btn small danger" data-act="reset">Ja, zurücksetzen</button></div></div>`
+      : `<button class="btn small danger" data-act="askreset" style="align-self:flex-start">Fortschritt zurücksetzen</button>`}
+    <p class="sync">${esc(syncLabel)}</p>`;
+}
+
+/* ========================= Events ========================= */
+document.addEventListener("click", e => {
+  const b = e.target.closest("[data-act]"); if (!b || b.disabled) return;
+  const a = b.dataset.act, sid = b.dataset.s, tid = b.dataset.t;
+  switch (a) {
+    case "home": go("home"); break;
+    case "subject": go("subject", { s: sid }); break;
+    case "add": go("add"); break;
+    case "edit": go("add", { edit: sid }); break;
+    case "locker": go("locker"); break;
+    case "askdel": view.confirmDel = true; render(); break;
+    case "canceldel": view.confirmDel = false; render(); break;
+    case "del": deleteSubject(sid); break;
+    case "huddle": startHuddle(sid, tid); break;
+    case "drive": startDrive(sid, tid); break;
+    case "drill": startDrill(sid); break;
+    case "flip": H.flip = !H.flip; render(); break;
+    case "hknow": {
+      const k = tKey(H.s, H.t) + "|" + H.queue[0];
+      if (!S.cards[k]) { S.cards[k] = true; S.points++; H.gained++; }
+      H.queue.shift(); H.flip = false; checkBadges(); save(); render(); break;
+    }
+    case "hagain": { const i = H.queue.shift(); H.queue.push(i); H.flip = false; render(); break; }
+    case "mc": { const i = +b.dataset.i; D.cur.pickedI = i; judge(D.cur.opts[i].ok); break; }
+    case "tf": { const v = b.dataset.v === "1"; D.cur.picked = v; judge(v === D.cur.item.answer); break; }
+    case "opick": { const p = D.cur.pool.splice(+b.dataset.k, 1)[0]; D.cur.ans.push(p); render(); break; }
+    case "ounpick": { const p = D.cur.ans.splice(+b.dataset.k, 1)[0]; D.cur.pool.push(p); render(); break; }
+    case "oreset": D.cur.pool = D.cur.pool.concat(D.cur.ans); D.cur.ans = []; render(); break;
+    case "ocheck": judge(D.cur.ans.every((p, k) => p.i === k)); break;
+    case "selfshow": D.cur.shown = true; render(); break;
+    case "selfyes": judge(true); break;
+    case "selfno": judge(false); break;
+    case "next": cont(); break;
+    case "xp": startXP(); break;
+    case "xpdone": D.phase = "xpdone"; render(); break;
+    case "savesubj": saveSubject(); break;
+    case "sample": $("#f-text").value = SAMPLE; if (!$("#f-name").value) $("#f-name").value = "Englisch"; updatePreview(); break;
+    case "saveplayer": { const v = $("#f-player").value.trim(); if (v) { S.player = v; save(); render(); } break; }
+    case "askreset": view.confirmReset = true; render(); break;
+    case "cancelreset": view.confirmReset = false; render(); break;
+    case "reset": { const p = S.player; S = Object.assign({}, DEFAULT_STATE, { player: p, topics: {}, cards: {}, badges: [] }); save(); view.confirmReset = false; render(); break; }
+  }
+});
+document.addEventListener("input", e => { if (e.target.id === "f-text") updatePreview(); });
+document.addEventListener("keydown", e => {
+  if (view.name !== "drive" || !D || !D.cur || e.target.matches("input,textarea")) return;
+  if (!D.cur.done && D.cur.item.type === "mc" && /^[1-4]$/.test(e.key)) { const btn = document.querySelector(`[data-act="mc"][data-i="${+e.key - 1}"]`); btn?.click(); }
+});
+
+/* ========================= Confetti ========================= */
+function burst() {
+  if (reduceMotion) return;
+  const cv = $("#confetti"), ctx = cv.getContext("2d");
+  cv.hidden = false; cv.width = innerWidth; cv.height = innerHeight;
+  const cols = ["#f6c431", "#f2f0e6", "#5fd38a", "#ff7a1a", "#5aa9ff"];
+  const ps = Array.from({ length: 140 }, () => ({ x: cv.width / 2, y: cv.height * .35, vx: (Math.random() - .5) * 14, vy: -Math.random() * 12 - 4, s: 4 + Math.random() * 6, c: pick(cols), r: Math.random() * 6 }));
+  let f = 0;
+  (function step() {
+    ctx.clearRect(0, 0, cv.width, cv.height);
+    ps.forEach(p => { p.x += p.vx; p.y += p.vy; p.vy += .35; p.vx *= .99; p.r += .2; ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.r); ctx.fillStyle = p.c; ctx.fillRect(-p.s / 2, -p.s / 4, p.s, p.s / 2); ctx.restore(); });
+    if (++f < 110) requestAnimationFrame(step); else { ctx.clearRect(0, 0, cv.width, cv.height); cv.hidden = true; }
+  })();
+}
+
+/* ========================= Cloud sync (falls verfügbar) ========================= */
+render();
+(async () => {
+  try {
+    if (!window.claude || !window.claude.use) return;
+    const [d, user] = await Promise.all([claude.use("db"), claude.use("user")]);
+    if (!d) return;
+    db = d;
+    syncLabel = "Fächer und Fortschritt werden online gespeichert";
+    db.collection("subjects").onSnapshot(snap => {
+      custom = snap.docs.map(x => ({ id: x.id, ...x.data() })).filter(s => s.name && Array.isArray(s.topics))
+        .sort((a, b) => (a.updated || 0) - (b.updated || 0));
+      lsSet("td_subjects", custom);
+      if (["home", "subject"].includes(view.name)) render();
+    }, () => {});
+    const uid = user ? await user.id() : null;
+    if (uid) {
+      progressRef = db.collection("data/users/" + uid).doc("progress");
+      const snap = await progressRef.get();
+      const remote = snap.exists ? snap.data() : null;
+      if (remote && (remote.points || 0) >= (S.points || 0)) {
+        S = Object.assign({}, DEFAULT_STATE, remote); lsSet("td_state", S);
+        if (["home", "subject", "locker"].includes(view.name)) render();
+      } else save();
+    }
+    if (view.name === "home" || view.name === "locker") render();
+  } catch (e) { /* offline: lokal weiterspielen */ }
+})();
+</script>
+
+</body>
+</html>
