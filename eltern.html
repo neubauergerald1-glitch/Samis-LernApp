@@ -64,7 +64,7 @@ function parse(h) {
   const body = i >= 0 ? m.slice(0, i) : m;
   const f = m.match(/Punkte gesamt: (\d+) · Touchdowns: (\d+)(?: · Karten gekonnt: (\d+))?/);
   const t = h.tags || [];
-  const kind = t.includes("football") ? "td" : t.includes("books") ? "cards" : t.includes("stopwatch") ? "drill" : t.includes("warning") ? "abort" : t.includes("white_check_mark") ? "test" : "other";
+  const kind = t.includes("football") ? "td" : t.includes("books") ? "cards" : t.includes("stopwatch") ? "drill" : t.includes("warning") || t.includes("no_bell") ? "abort" : t.includes("white_check_mark") ? "test" : "other";
   let subj = null, topic = null, mm;
   if ((kind === "td" || kind === "cards") && (mm = body.match(/^(.+?) · (.+?): /))) { subj = mm[1]; topic = mm[2]; }
   if (kind === "abort" && (mm = body.match(/^Drive „(.+?)“ \((.+?)\) abgebrochen/))) { topic = mm[1]; subj = mm[2]; }

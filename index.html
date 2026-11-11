@@ -568,8 +568,16 @@ function renderLocker() {
     <div class="row" style="align-items:flex-end"><label for="f-player" style="flex:1;min-width:200px">Name auf der Anzeigetafel<input id="f-player" value="${esc(S.player)}" maxlength="20"></label><button class="btn" data-act="saveplayer">Speichern</button></div>
     <h2>Eltern-Benachrichtigung</h2>
     <p class="muted">Ist ein Eltern-Code eingetragen, bekommt ein Elternteil über die App „ntfy“ eine Nachricht aufs Handy, sobald eine Übung fertig ist.</p>
-    <div class="row" style="align-items:flex-end"><label for="f-ntfy" style="flex:1;min-width:200px">Eltern-Code<input id="f-ntfy" value="${esc(ntfyTopic() || "")}" placeholder="Code von Mama oder Papa" autocomplete="off" autocapitalize="off" spellcheck="false"></label><button class="btn" data-act="saventfy">Speichern</button></div>
-    <div class="row">${ntfyTopic() ? `<span class="chip ok">Aktiv</span><button class="btn small ghost" data-act="testntfy">Test-Nachricht senden</button><button class="btn small danger" data-act="offntfy">Ausschalten</button>` : `<span class="chip">Nicht eingerichtet</span>`}</div>
+    ${!ntfyTopic() ? `
+      <div class="row" style="align-items:flex-end"><label for="f-ntfy" style="flex:1;min-width:200px">Eltern-Code<input id="f-ntfy" type="password" placeholder="Code von Mama oder Papa" autocomplete="off" autocapitalize="off" spellcheck="false"></label><button class="btn" data-act="saventfy">Speichern</button></div>
+      <div class="row"><span class="chip">Nicht eingerichtet</span></div>`
+    : view.unlocked ? `
+      <div class="row" style="align-items:flex-end"><label for="f-ntfy" style="flex:1;min-width:200px">Neuer Eltern-Code<input id="f-ntfy" value="${esc(ntfyTopic())}" autocomplete="off" autocapitalize="off" spellcheck="false"></label><button class="btn" data-act="saventfy">Speichern</button></div>
+      <div class="row"><span class="chip ok">Entsperrt</span><button class="btn small danger" data-act="offntfy">Ausschalten</button><button class="btn small ghost" data-act="lockntfy">Wieder sperren</button></div>`
+    : `
+      <div class="row"><span class="chip ok">Aktiv · gesperrt</span><button class="btn small ghost" data-act="testntfy">Test-Nachricht senden</button></div>
+      <p class="muted">Ändern oder ausschalten können nur Mama oder Papa mit dem Eltern-Code.</p>
+      <div class="row" style="align-items:flex-end"><label for="f-unlock" style="flex:1;min-width:200px">Eltern-Code zum Entsperren<input id="f-unlock" type="password" autocomplete="off" autocapitalize="off" spellcheck="false"></label><button class="btn" data-act="unlockntfy">Entsperren</button></div>`}
     <p id="ntfy-msg" class="muted"></p>
     ${view.confirmReset ? `<div class="confirm"><span>Alle Punkte, Touchdowns und Trophäen auf 0 setzen?</span><div class="row"><button class="btn small ghost" data-act="cancelreset">Abbrechen</button><button class="btn small danger" data-act="reset">Ja, zurücksetzen</button></div></div>`
       : `<button class="btn small danger" data-act="askreset" style="align-self:flex-start">Fortschritt zurücksetzen</button>`}
@@ -619,11 +627,19 @@ document.addEventListener("click", e => {
     case "savesubj": saveSubject(); break;
     case "sample": $("#f-text").value = SAMPLE; if (!$("#f-name").value) $("#f-name").value = "Englisch"; updatePreview(); break;
     case "saveplayer": { const v = $("#f-player").value.trim(); if (v) { S.player = v; save(); render(); } break; }
+    case "unlockntfy": {
+      const v = $("#f-unlock").value.trim(), m = $("#ntfy-msg");
+      if (v && v === ntfyTopic()) { view.unlocked = true; render(); }
+      else { m.className = "err"; m.textContent = "Der Code stimmt nicht."; $("#f-unlock").value = ""; }
+      break;
+    }
+    case "lockntfy": view.unlocked = false; render(); break;
     case "saventfy": {
       const v = $("#f-ntfy").value.trim(), m = $("#ntfy-msg");
-      if (!v) { lsSet(NTFY_KEY, null); render(); break; }
+      if (ntfyTopic() && !view.unlocked) break;
+      if (!v) { m.className = "err"; m.textContent = "Bitte einen Code eingeben. Zum Ausschalten gibt es den Knopf „Ausschalten“."; break; }
       if (!NTFY_RE.test(v)) { m.className = "err"; m.textContent = "Der Code darf nur Buchstaben, Zahlen, - und _ enthalten (8–64 Zeichen)."; break; }
-      lsSet(NTFY_KEY, v); render(); $("#ntfy-msg").className = "okmsg"; $("#ntfy-msg").textContent = "Gespeichert. Schick zur Kontrolle eine Test-Nachricht."; break;
+      lsSet(NTFY_KEY, v); view.unlocked = false; render(); $("#ntfy-msg").className = "okmsg"; $("#ntfy-msg").textContent = "Gespeichert. Schick zur Kontrolle eine Test-Nachricht."; break;
     }
     case "testntfy": {
       const m = $("#ntfy-msg"); m.className = "muted"; m.textContent = "Wird gesendet …";
@@ -631,10 +647,10 @@ document.addEventListener("click", e => {
         .then(ok => { m.className = ok ? "okmsg" : "err"; m.textContent = ok ? "Gesendet. Die Nachricht sollte gleich auf dem Eltern-Handy ankommen." : "Senden hat nicht geklappt. Ist das Gerät online?"; });
       break;
     }
-    case "offntfy": lsSet(NTFY_KEY, null); render(); break;
+    case "offntfy": if (view.unlocked) { notifyParent(`Benachrichtigung aus`, `In ${S.player}s Lernapp wurde die Eltern-Benachrichtigung mit dem Eltern-Code ausgeschaltet.`, ["no_bell"]); lsSet(NTFY_KEY, null); view.unlocked = false; render(); } break;
     case "askreset": view.confirmReset = true; render(); break;
     case "cancelreset": view.confirmReset = false; render(); break;
-    case "reset": { const p = S.player; S = Object.assign({}, DEFAULT_STATE, { player: p, topics: {}, cards: {}, badges: [] }); save(); view.confirmReset = false; render(); break; }
+    case "reset": { notifyParent(`${S.player} hat den Fortschritt zurückgesetzt`, `Alle Punkte, Touchdowns und Trophäen wurden auf 0 gesetzt.`, ["warning"]); const p = S.player; S = Object.assign({}, DEFAULT_STATE, { player: p, topics: {}, cards: {}, badges: [] }); save(); view.confirmReset = false; render(); break; }
   }
 });
 document.addEventListener("input", e => { if (e.target.id === "f-text") updatePreview(); });
