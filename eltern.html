@@ -58,13 +58,13 @@ try {
 let hist = lsGet(HIST_KEY, []);
 const st = { loading: false, error: "", last: null, confirmClear: false, msg: "" };
 
-const KIND = { td: "Touchdown", cards: "Karteikarten", drill: "Two-Minute Drill", abort: "Abgebrochen", test: "Test", other: "Nachricht" };
+const KIND = { status: "Stand", td: "Touchdown", cards: "Karteikarten", drill: "Two-Minute Drill", abort: "Abgebrochen", test: "Test", other: "Nachricht" };
 function parse(h) {
   const m = h.message || "", i = m.indexOf("\nPunkte gesamt:");
   const body = i >= 0 ? m.slice(0, i) : m;
   const f = m.match(/Punkte gesamt: (\d+) · Touchdowns: (\d+)(?: · Karten gekonnt: (\d+))?/);
   const t = h.tags || [];
-  const kind = t.includes("football") ? "td" : t.includes("books") ? "cards" : t.includes("stopwatch") ? "drill" : t.includes("warning") || t.includes("no_bell") ? "abort" : t.includes("white_check_mark") ? "test" : "other";
+  const kind = t.includes("bar_chart") ? "status" : t.includes("football") ? "td" : t.includes("books") ? "cards" : t.includes("stopwatch") ? "drill" : t.includes("warning") || t.includes("no_bell") ? "abort" : t.includes("white_check_mark") ? "test" : "other";
   let subj = null, topic = null, mm;
   if ((kind === "td" || kind === "cards") && (mm = body.match(/^(.+?) · (.+?): /))) { subj = mm[1]; topic = mm[2]; }
   if (kind === "abort" && (mm = body.match(/^Drive „(.+?)“ \((.+?)\) abgebrochen/))) { topic = mm[1]; subj = mm[2]; }
@@ -126,8 +126,10 @@ function renderSetup() {
 
 function render() {
   if (!code) return renderSetup();
-  const P = hist.map(parse).filter(e => e.kind !== "test" || hist.length === 1);
-  const latest = P.find(e => e.points != null);
+  const ALL = hist.map(parse);
+  const latest = ALL.find(e => e.points != null);               // neuester Punktestand, egal aus welcher Meldung
+  const P = ALL.filter(e => e.kind !== "status" && e.kind !== "test"); // echte Übungen
+  const lastEx = P[0];
   const now = new Date();
   const today = P.filter(e => dayKey(new Date(e.time * 1000)) === dayKey(now));
   const cnt = k => today.filter(e => e.kind === k).length;
@@ -164,7 +166,7 @@ function render() {
       <div class="team"><small>Eltern-Ansicht</small>Samis Lernstand</div>
       <div class="digit">${latest ? latest.points : "–"}<small>Punkte</small></div>
       <div class="digit">${latest ? latest.tds : "–"}<small>TDs</small></div>
-      <div class="ticker">${latest ? `Letzte Übung <b>${ago(latest.time * 1000)}</b> (${dayLabel(new Date(latest.time * 1000))}, ${hm(new Date(latest.time * 1000))})${latest.cards != null ? ` · ${latest.cards} Karten gekonnt` : ""}` : "Noch keine Übung empfangen."}</div>
+      <div class="ticker">${latest ? `Stand von ${dayLabel(new Date(latest.time * 1000))}, ${hm(new Date(latest.time * 1000))}${latest.cards != null ? ` · ${latest.cards} Karten gekonnt` : ""}<br>` : ""}${lastEx ? `Letzte Übung <b>${ago(lastEx.time * 1000)}</b>` : "Noch keine Übung empfangen."}</div>
     </section>
     <div class="spread">
       <div class="today"><span class="chip ${today.length ? "td" : ""}">Heute: ${today.length} Übung${today.length === 1 ? "" : "en"}</span>
@@ -175,7 +177,7 @@ function render() {
       <button class="btn small" data-act="refresh" ${st.loading ? "disabled" : ""}>${st.loading ? "Lädt …" : "Aktualisieren"}</button>
     </div>
     ${st.error ? `<p class="err">${esc(st.error)}</p>` : ""}
-    ${!P.length ? `<div class="empty"><h3>Noch nichts da</h3><p class="muted">Sobald Sami eine Übung beendet, erscheint sie hier mit Punktestand. Prüfe, ob in seiner Lernapp unter Trophäen → Eltern-Benachrichtigung derselbe Code eingetragen ist.</p></div>` : ""}
+    ${!P.length && !latest ? `<div class="empty"><h3>Noch nichts da</h3><p class="muted">Sobald Sami eine Übung beendet, erscheint sie hier mit Punktestand. Prüfe, ob in seiner Lernapp unter Trophäen → Eltern-Benachrichtigung derselbe Code eingetragen ist.</p></div>` : ""}
     ${subjBlocks}
     ${P.length ? `<h2>Verlauf</h2><div class="feed">${feed}</div>` : ""}
     <p class="note">Gratis-Dienst ntfy.sh: Neue Übungen sind dort etwa 12 Stunden abrufbar. Was diese Seite einmal geladen hat, bleibt auf deinem Handy gespeichert. Öffne die Elternansicht also am besten einmal am Tag.</p>

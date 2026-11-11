@@ -70,14 +70,24 @@ try {
     history.replaceState(null, "", u.pathname + u.search + u.hash);
   }
 } catch {}
-function notifyParent(title, message, tags) {
+function notifyParent(title, message, tags, priority) {
   const topic = ntfyTopic();
   if (!topic) return Promise.resolve(false);
   try {
     return fetch("https://ntfy.sh/", { method: "POST", keepalive: true,
-      body: JSON.stringify({ topic, title, message: message + `\nPunkte gesamt: ${S.points} · Touchdowns: ${S.tds} · Karten gekonnt: ${Object.values(S.cards).filter(Boolean).length}`, tags: tags || [] }) })
+      body: JSON.stringify({ topic, title, message: message + `\nPunkte gesamt: ${S.points} · Touchdowns: ${S.tds} · Karten gekonnt: ${Object.values(S.cards).filter(Boolean).length}`, tags: tags || [], priority: priority || 3 }) })
       .then(r => r.ok).catch(() => false);
   } catch { return Promise.resolve(false); }
+}
+/* Stiller Stand-Bericht (ohne Ton), damit die Elternansicht immer den aktuellen Punktestand kennt */
+const STATUS_KEY = "td_ntfy_status";
+function sendStatus(reason) {
+  if (!ntfyTopic()) return;
+  lsSet(STATUS_KEY, Date.now());
+  notifyParent(`Stand: ${S.player}`, reason, ["bar_chart"], 1);
+}
+function maybeSendStatus() {
+  if (ntfyTopic() && Date.now() - (lsGet(STATUS_KEY, 0) || 0) > 3 * 3600e3) sendStatus("Lernapp geöffnet.");
 }
 
 /* ========================= Questions ========================= */
@@ -639,7 +649,7 @@ document.addEventListener("click", e => {
       if (ntfyTopic() && !view.unlocked) break;
       if (!v) { m.className = "err"; m.textContent = "Bitte einen Code eingeben. Zum Ausschalten gibt es den Knopf „Ausschalten“."; break; }
       if (!NTFY_RE.test(v)) { m.className = "err"; m.textContent = "Der Code darf nur Buchstaben, Zahlen, - und _ enthalten (8–64 Zeichen)."; break; }
-      lsSet(NTFY_KEY, v); view.unlocked = false; render(); $("#ntfy-msg").className = "okmsg"; $("#ntfy-msg").textContent = "Gespeichert. Schick zur Kontrolle eine Test-Nachricht."; break;
+      lsSet(NTFY_KEY, v); view.unlocked = false; render(); $("#ntfy-msg").className = "okmsg"; $("#ntfy-msg").textContent = "Gespeichert. Schick zur Kontrolle eine Test-Nachricht."; sendStatus("Eltern-Benachrichtigung eingeschaltet."); break;
     }
     case "testntfy": {
       const m = $("#ntfy-msg"); m.className = "muted"; m.textContent = "Wird gesendet …";
@@ -676,6 +686,8 @@ function burst() {
 
 /* ========================= Cloud sync (falls verfügbar) ========================= */
 render();
+if (parentJustLinked) sendStatus("Eltern-Benachrichtigung eingeschaltet."); else maybeSendStatus();
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") maybeSendStatus(); });
 (async () => {
   try {
     if (!window.claude || !window.claude.use) return;
