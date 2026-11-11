@@ -385,6 +385,31 @@ const getSubj = id => subjects().find(s => s.id === id);
 const getTopic = (s, id) => s.topics.find(t => t.id === id);
 const tKey = (s, t) => s.id + "|" + t.id;
 
+/* ========================= Eltern-Benachrichtigung (ntfy) =========================
+   Der Eltern-Code steht NICHT im Code, sondern nur im Browser des Geräts.
+   Einrichten per Link: ...?eltern=CODE  oder in der App unter Trophäen. */
+const NTFY_KEY = "td_ntfy";
+const NTFY_RE = /^[A-Za-z0-9_-]{8,64}$/;
+let parentJustLinked = false;
+const ntfyTopic = () => { const t = lsGet(NTFY_KEY, null); return t && NTFY_RE.test(t) ? t : null; };
+try {
+  const u = new URL(location.href), t = u.searchParams.get("eltern");
+  if (t && NTFY_RE.test(t)) {
+    lsSet(NTFY_KEY, t); parentJustLinked = true;
+    u.searchParams.delete("eltern");
+    history.replaceState(null, "", u.pathname + u.search + u.hash);
+  }
+} catch {}
+function notifyParent(title, message, tags) {
+  const topic = ntfyTopic();
+  if (!topic) return Promise.resolve(false);
+  try {
+    return fetch("https://ntfy.sh/", { method: "POST", keepalive: true,
+      body: JSON.stringify({ topic, title, message: message + `\nPunkte gesamt: ${S.points} · Touchdowns: ${S.tds}`, tags: tags || [] }) })
+      .then(r => r.ok).catch(() => false);
+  } catch { return Promise.resolve(false); }
+}
+
 /* ========================= Questions ========================= */
 function pool(subj, topic) {
   if (topic.quiz && topic.quiz.length) return topic.quiz.map(q => Object.assign({}, q));
@@ -460,6 +485,11 @@ const yardText = y => y >= 100 ? "Endzone" : y < 50 ? `eigenen ${Math.round(y)}`
 
 /* ========================= Views ========================= */
 function go(name, params = {}) {
+  if (view.name === "drive" && D && D.phase === "play" && (D.correct + D.wrongs) > 0) {
+    const what = D.mode === "drill" ? "Two-Minute Drill" : `Drive „${D.t.name}“`;
+    notifyParent(`${S.player} hat abgebrochen`, `${what} (${D.s.name}) abgebrochen: ${D.correct} richtig, ${D.wrongs} Fehler.`, ["warning"]);
+    D.phase = "aborted";
+  }
   if (D && D.timer) { clearInterval(D.timer); D.timer = null; }
   view = Object.assign({ name }, params);
   render();
@@ -488,6 +518,7 @@ function renderHome() {
     </button>`;
   }).join("");
   app.innerHTML = `${board()}
+    ${parentJustLinked ? `<p class="okmsg">Eltern-Benachrichtigung ist eingeschaltet.</p>` : ""}
     <div class="spread"><h1>Dein Playbook</h1><button class="btn small ghost" data-act="locker">Trophäen</button></div>
     <div class="grid">${cards}
       <button class="subj add" data-act="add"><span class="plus">+</span><span class="eyebrow">Fach hinzufügen</span></button>
@@ -649,6 +680,8 @@ function touchdown() {
   S.topics[k] = st;
   D.newBadges = checkBadges();
   save(); burst(); render();
+  notifyParent(`Touchdown! ${S.player} hat geübt`,
+    `${D.s.name} · ${D.t.name}: ${D.total} Fragen, ${D.wrongs} Fehler${D.wrongs === 0 ? " – perfekter Drive!" : "."}`, ["football"]);
 }
 function startXP() {
   const pl = shuffle(subjectPool(D.s));
@@ -672,6 +705,8 @@ function endDrill() {
   S.points += D.correct; // 1 Punkt je richtige Antwort
   D.newBadges = checkBadges();
   save(); if (D.tdCount) burst(); render();
+  notifyParent(`Two-Minute Drill: ${S.player}`,
+    `${D.s.name}: ${D.correct} richtig, ${D.wrongs} Fehler, ${D.tdCount} Touchdown${D.tdCount === 1 ? "" : "s"} in 2 Minuten.`, ["stopwatch"]);
 }
 
 function questionHTML() {
@@ -861,6 +896,11 @@ function renderLocker() {
     <div class="badges">${BADGES.map(b => `<div class="badge ${S.badges.includes(b.id) ? "on" : ""}"><span class="ic">${b.ic}</span><div><b>${esc(b.name)}</b><span>${esc(b.desc)}</span></div></div>`).join("")}</div>
     <h2>Spieler</h2>
     <div class="row" style="align-items:flex-end"><label for="f-player" style="flex:1;min-width:200px">Name auf der Anzeigetafel<input id="f-player" value="${esc(S.player)}" maxlength="20"></label><button class="btn" data-act="saveplayer">Speichern</button></div>
+    <h2>Eltern-Benachrichtigung</h2>
+    <p class="muted">Ist ein Eltern-Code eingetragen, bekommt ein Elternteil über die App „ntfy“ eine Nachricht aufs Handy, sobald eine Übung fertig ist.</p>
+    <div class="row" style="align-items:flex-end"><label for="f-ntfy" style="flex:1;min-width:200px">Eltern-Code<input id="f-ntfy" value="${esc(ntfyTopic() || "")}" placeholder="Code von Mama oder Papa" autocomplete="off" autocapitalize="off" spellcheck="false"></label><button class="btn" data-act="saventfy">Speichern</button></div>
+    <div class="row">${ntfyTopic() ? `<span class="chip ok">Aktiv</span><button class="btn small ghost" data-act="testntfy">Test-Nachricht senden</button><button class="btn small danger" data-act="offntfy">Ausschalten</button>` : `<span class="chip">Nicht eingerichtet</span>`}</div>
+    <p id="ntfy-msg" class="muted"></p>
     ${view.confirmReset ? `<div class="confirm"><span>Alle Punkte, Touchdowns und Trophäen auf 0 setzen?</span><div class="row"><button class="btn small ghost" data-act="cancelreset">Abbrechen</button><button class="btn small danger" data-act="reset">Ja, zurücksetzen</button></div></div>`
       : `<button class="btn small danger" data-act="askreset" style="align-self:flex-start">Fortschritt zurücksetzen</button>`}
     <p class="sync">${esc(syncLabel)}</p>`;
@@ -886,7 +926,12 @@ document.addEventListener("click", e => {
     case "hknow": {
       const k = tKey(H.s, H.t) + "|" + H.queue[0];
       if (!S.cards[k]) { S.cards[k] = true; S.points++; H.gained++; }
-      H.queue.shift(); H.flip = false; checkBadges(); save(); render(); break;
+      H.queue.shift(); H.flip = false; checkBadges(); save(); render();
+      if (!H.queue.length) {
+        const known = H.t.cards.filter((_, i) => S.cards[tKey(H.s, H.t) + "|" + i]).length;
+        notifyParent(`Karteikarten: ${S.player}`, `${H.s.name} · ${H.t.name}: alle Karten durch, ${known} von ${H.t.cards.length} kann er.`, ["books"]);
+      }
+      break;
     }
     case "hagain": { const i = H.queue.shift(); H.queue.push(i); H.flip = false; render(); break; }
     case "mc": { const i = +b.dataset.i; D.cur.pickedI = i; judge(D.cur.opts[i].ok); break; }
@@ -904,6 +949,19 @@ document.addEventListener("click", e => {
     case "savesubj": saveSubject(); break;
     case "sample": $("#f-text").value = SAMPLE; if (!$("#f-name").value) $("#f-name").value = "Englisch"; updatePreview(); break;
     case "saveplayer": { const v = $("#f-player").value.trim(); if (v) { S.player = v; save(); render(); } break; }
+    case "saventfy": {
+      const v = $("#f-ntfy").value.trim(), m = $("#ntfy-msg");
+      if (!v) { lsSet(NTFY_KEY, null); render(); break; }
+      if (!NTFY_RE.test(v)) { m.className = "err"; m.textContent = "Der Code darf nur Buchstaben, Zahlen, - und _ enthalten (8–64 Zeichen)."; break; }
+      lsSet(NTFY_KEY, v); render(); $("#ntfy-msg").className = "okmsg"; $("#ntfy-msg").textContent = "Gespeichert. Schick zur Kontrolle eine Test-Nachricht."; break;
+    }
+    case "testntfy": {
+      const m = $("#ntfy-msg"); m.className = "muted"; m.textContent = "Wird gesendet …";
+      notifyParent(`Test von ${S.player}`, "Die Eltern-Benachrichtigung der Lernapp funktioniert.", ["white_check_mark"])
+        .then(ok => { m.className = ok ? "okmsg" : "err"; m.textContent = ok ? "Gesendet. Die Nachricht sollte gleich auf dem Eltern-Handy ankommen." : "Senden hat nicht geklappt. Ist das Gerät online?"; });
+      break;
+    }
+    case "offntfy": lsSet(NTFY_KEY, null); render(); break;
     case "askreset": view.confirmReset = true; render(); break;
     case "cancelreset": view.confirmReset = false; render(); break;
     case "reset": { const p = S.player; S = Object.assign({}, DEFAULT_STATE, { player: p, topics: {}, cards: {}, badges: [] }); save(); view.confirmReset = false; render(); break; }
