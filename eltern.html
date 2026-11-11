@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Lernapp Eltern</title>
+<meta name="theme-color" content="#0c1f15">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Lernapp Eltern">
+<link rel="icon" type="image/svg+xml" href="icons/icon.svg">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/icon-32.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="manifest" href="eltern.webmanifest">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Graduate&family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@500;600;700&display=swap">
+<link rel="stylesheet" href="app.css">
+<style>
+:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+body{margin:0}
+[hidden]{display:none!important}
+.stand{font-family:var(--f-board);letter-spacing:.06em;color:var(--muted)}
+.stand b{color:var(--chalk)}
+.today{display:flex;gap:8px;flex-wrap:wrap}
+.topics{display:flex;flex-direction:column;gap:8px}
+.topic{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 14px;display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+.topic span:first-child{font-weight:600;min-width:0}
+.day{font-family:var(--f-board);text-transform:uppercase;letter-spacing:.14em;font-size:.85rem;color:var(--post);font-weight:700;margin-top:6px}
+.feed{display:flex;flex-direction:column;gap:8px}
+.entry{background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--line);border-radius:10px;padding:10px 14px;display:grid;grid-template-columns:auto 1fr;gap:4px 12px;align-items:baseline}
+.entry.td{border-left-color:var(--post)}
+.entry.cards{border-left-color:var(--good)}
+.entry.drill{border-left-color:#5aa9ff}
+.entry.abort{border-left-color:var(--flag)}
+.entry time{font-family:var(--f-board);font-weight:700;font-variant-numeric:tabular-nums;color:var(--muted)}
+.entry .what{font-family:var(--f-board);text-transform:uppercase;letter-spacing:.08em;font-weight:700;font-size:.9rem}
+.entry .body{grid-column:2;min-width:0;overflow-wrap:anywhere}
+.entry .score{grid-column:2;font-family:var(--f-board);color:var(--muted);font-size:.92rem;letter-spacing:.04em}
+.note{font-size:.9rem;color:var(--muted);max-width:65ch}
+.empty{background:var(--panel);border:2px dashed var(--line);border-radius:14px;padding:20px;display:flex;flex-direction:column;gap:8px}
+</style>
+</head>
+<body>
+<main class="wrap" id="app" aria-live="polite"></main>
+<script src="content.js"></script>
+<script>
+const CODE_KEY = "td_parent_code", HIST_KEY = "td_parent_hist";
+const RE = /^[A-Za-z0-9_-]{8,64}$/;
+const $ = s => document.querySelector(s);
+const app = $("#app");
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const lsGet = (k, d) => { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } };
+const lsSet = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} };
+
+let code = lsGet(CODE_KEY, null);
+try {
+  const u = new URL(location.href), c = u.searchParams.get("code");
+  if (c && RE.test(c)) { code = c; lsSet(CODE_KEY, c); u.searchParams.delete("code"); history.replaceState(null, "", u.pathname + u.search + u.hash); }
+} catch {}
+let hist = lsGet(HIST_KEY, []);
+const st = { loading: false, error: "", last: null, confirmClear: false, msg: "" };
+
+const KIND = { td: "Touchdown", cards: "Karteikarten", drill: "Two-Minute Drill", abort: "Abgebrochen", test: "Test", other: "Nachricht" };
+function parse(h) {
+  const m = h.message || "", i = m.indexOf("\nPunkte gesamt:");
+  const body = i >= 0 ? m.slice(0, i) : m;
+  const f = m.match(/Punkte gesamt: (\d+) · Touchdowns: (\d+)(?: · Karten gekonnt: (\d+))?/);
+  const t = h.tags || [];
+  const kind = t.includes("football") ? "td" : t.includes("books") ? "cards" : t.includes("stopwatch") ? "drill" : t.includes("warning") ? "abort" : t.includes("white_check_mark") ? "test" : "other";
+  let subj = null, topic = null, mm;
+  if ((kind === "td" || kind === "cards") && (mm = body.match(/^(.+?) · (.+?): /))) { subj = mm[1]; topic = mm[2]; }
+  if (kind === "abort" && (mm = body.match(/^Drive „(.+?)“ \((.+?)\) abgebrochen/))) { topic = mm[1]; subj = mm[2]; }
+  if (kind === "abort" && (mm = body.match(/^Two-Minute Drill \((.+?)\)/))) subj = mm[1];
+  if (kind === "drill" && (mm = body.match(/^(.+?): /))) subj = mm[1];
+  return Object.assign({}, h, { body, kind, subj, topic, points: f ? +f[1] : null, tds: f ? +f[2] : null, cards: f && f[3] != null ? +f[3] : null });
+}
+
+async function refresh() {
+  if (!code || st.loading) return;
+  st.loading = true; render();
+  try {
+    const r = await fetch(`https://ntfy.sh/${encodeURIComponent(code)}/json?poll=1&since=all`, { cache: "no-store" });
+    if (!r.ok) throw new Error(r.status);
+    const msgs = (await r.text()).split("\n").filter(Boolean).map(l => { try { return JSON.parse(l); } catch { return null; } }).filter(m => m && m.event === "message");
+    const byId = new Map(hist.map(h => [h.id, h]));
+    msgs.forEach(m => byId.set(m.id, { id: m.id, time: m.time, title: m.title || "", message: m.message || "", tags: m.tags || [] }));
+    hist = [...byId.values()].sort((a, b) => b.time - a.time).slice(0, 500);
+    lsSet(HIST_KEY, hist);
+    st.error = ""; st.last = Date.now();
+  } catch (e) {
+    st.error = "Neue Übungen konnten nicht geladen werden. Bist du online? Unten siehst du den zuletzt gespeicherten Stand.";
+  }
+  st.loading = false; render();
+}
+
+const dayKey = d => d.toDateString();
+function dayLabel(d) {
+  const t = new Date(), y = new Date(); y.setDate(t.getDate() - 1);
+  if (dayKey(d) === dayKey(t)) return "Heute";
+  if (dayKey(d) === dayKey(y)) return "Gestern";
+  return d.toLocaleDateString("de-AT", { weekday: "long", day: "numeric", month: "numeric" });
+}
+const hm = d => d.toLocaleTimeString("de-AT", { hour: "2-digit", minute: "2-digit" });
+function ago(d) {
+  const min = Math.round((Date.now() - d) / 60000);
+  if (min < 1) return "gerade eben";
+  if (min < 60) return `vor ${min} Min.`;
+  const h = Math.round(min / 60);
+  if (h < 24) return `vor ${h} Std.`;
+  const days = Math.round(h / 24);
+  return days === 1 ? "vor 1 Tag" : `vor ${days} Tagen`;
+}
+function countdown(test) {
+  if (!test) return "";
+  const t = new Date(test + "T00:00:00"), n = new Date(); n.setHours(0, 0, 0, 0);
+  const d = Math.round((t - n) / 864e5);
+  if (d < 0) return ""; if (d === 0) return "Heute ist Test"; if (d === 1) return "Morgen ist Test";
+  return `Noch ${d} Tage bis zum Test`;
+}
+
+function renderSetup() {
+  app.innerHTML = `<section class="board"><div class="team"><small>Eltern-Ansicht</small>Samis Lernstand</div></section>
+    <h1>Eltern-Code eingeben</h1>
+    <p class="note">Gib den Eltern-Code ein, der auch in Samis Lernapp eingetragen ist. Dann siehst du hier seinen Punktestand und welche Übungen er gemacht hat.</p>
+    <div class="row" style="align-items:flex-end"><label for="f-code" style="flex:1;min-width:200px">Eltern-Code<input id="f-code" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="sami-lernapp-…"></label><button class="btn primary" data-act="savecode">Weiter</button></div>
+    <p id="msg" class="err">${esc(st.msg)}</p>`;
+}
+
+function render() {
+  if (!code) return renderSetup();
+  const P = hist.map(parse).filter(e => e.kind !== "test" || hist.length === 1);
+  const latest = P.find(e => e.points != null);
+  const now = new Date();
+  const today = P.filter(e => dayKey(new Date(e.time * 1000)) === dayKey(now));
+  const cnt = k => today.filter(e => e.kind === k).length;
+
+  // Themenübersicht je Fach
+  const subjNames = [...new Set([...BUILTIN.map(s => s.name), ...P.map(e => e.subj).filter(Boolean)])];
+  const subjBlocks = subjNames.map(name => {
+    const b = BUILTIN.find(s => s.name === name);
+    const topicNames = [...new Set([...(b ? b.topics.map(t => t.name) : []), ...P.filter(e => e.subj === name && e.topic).map(e => e.topic)])];
+    if (!topicNames.length) return "";
+    const rows = topicNames.map(tn => {
+      const es = P.filter(e => e.subj === name && e.topic === tn);
+      const tdN = es.filter(e => e.kind === "td").length, cards = es.some(e => e.kind === "cards");
+      const chips = (tdN ? `<span class="chip td">${tdN}× Touchdown</span>` : "") + (cards ? `<span class="chip ok">Karten</span>` : "") + (!tdN && !cards ? `<span class="chip">noch nicht geübt</span>` : "");
+      return `<div class="topic"><span>${esc(tn)}</span><span class="chips">${chips}</span></div>`;
+    }).join("");
+    const done = topicNames.filter(tn => P.some(e => e.subj === name && e.topic === tn && e.kind === "td")).length;
+    const cd = b && countdown(b.test);
+    return `<section style="display:flex;flex-direction:column;gap:10px"><div class="spread"><h2>${esc(name)}</h2><span class="stand">${done}/${topicNames.length} Themen mit Touchdown${cd ? ` · <b>${cd}</b>` : ""}</span></div><div class="topics">${rows}</div></section>`;
+  }).join("");
+
+  // Verlauf nach Tagen
+  let feed = "", lastDay = "";
+  P.slice(0, 80).forEach(e => {
+    const d = new Date(e.time * 1000), dk = dayKey(d);
+    if (dk !== lastDay) { feed += `<div class="day">${esc(dayLabel(d))}</div>`; lastDay = dk; }
+    feed += `<div class="entry ${e.kind}"><time datetime="${d.toISOString()}">${hm(d)}</time><span class="what">${KIND[e.kind]}</span>
+      <span class="body">${esc(e.body)}</span>
+      ${e.points != null ? `<span class="score">Stand danach: ${e.points} Punkte · ${e.tds} TDs${e.cards != null ? ` · ${e.cards} Karten` : ""}</span>` : ""}</div>`;
+  });
+
+  app.innerHTML = `
+    <section class="board" aria-label="Punktestand">
+      <div class="team"><small>Eltern-Ansicht</small>Samis Lernstand</div>
+      <div class="digit">${latest ? latest.points : "–"}<small>Punkte</small></div>
+      <div class="digit">${latest ? latest.tds : "–"}<small>TDs</small></div>
+      <div class="ticker">${latest ? `Letzte Übung <b>${ago(latest.time * 1000)}</b> (${dayLabel(new Date(latest.time * 1000))}, ${hm(new Date(latest.time * 1000))})${latest.cards != null ? ` · ${latest.cards} Karten gekonnt` : ""}` : "Noch keine Übung empfangen."}</div>
+    </section>
+    <div class="spread">
+      <div class="today"><span class="chip ${today.length ? "td" : ""}">Heute: ${today.length} Übung${today.length === 1 ? "" : "en"}</span>
+        ${cnt("td") ? `<span class="chip td">${cnt("td")} Touchdown${cnt("td") === 1 ? "" : "s"}</span>` : ""}
+        ${cnt("cards") ? `<span class="chip ok">${cnt("cards")}× Karteikarten</span>` : ""}
+        ${cnt("drill") ? `<span class="chip">${cnt("drill")}× Drill</span>` : ""}
+        ${cnt("abort") ? `<span class="chip" style="border-color:var(--flag);color:var(--flag)">${cnt("abort")}× abgebrochen</span>` : ""}</div>
+      <button class="btn small" data-act="refresh" ${st.loading ? "disabled" : ""}>${st.loading ? "Lädt …" : "Aktualisieren"}</button>
+    </div>
+    ${st.error ? `<p class="err">${esc(st.error)}</p>` : ""}
+    ${!P.length ? `<div class="empty"><h3>Noch nichts da</h3><p class="muted">Sobald Sami eine Übung beendet, erscheint sie hier mit Punktestand. Prüfe, ob in seiner Lernapp unter Trophäen → Eltern-Benachrichtigung derselbe Code eingetragen ist.</p></div>` : ""}
+    ${subjBlocks}
+    ${P.length ? `<h2>Verlauf</h2><div class="feed">${feed}</div>` : ""}
+    <p class="note">Gratis-Dienst ntfy.sh: Neue Übungen sind dort etwa 12 Stunden abrufbar. Was diese Seite einmal geladen hat, bleibt auf deinem Handy gespeichert. Öffne die Elternansicht also am besten einmal am Tag.</p>
+    <h2>Einstellungen</h2>
+    <div class="row" style="align-items:flex-end"><label for="f-code" style="flex:1;min-width:200px">Eltern-Code<input id="f-code" value="${esc(code)}" autocomplete="off" autocapitalize="off" spellcheck="false"></label><button class="btn" data-act="savecode">Speichern</button></div>
+    <p id="msg" class="err">${esc(st.msg)}</p>
+    ${st.confirmClear ? `<div class="confirm"><span>Gespeicherten Verlauf auf diesem Handy löschen? Samis Punkte in der Lernapp bleiben erhalten.</span><div class="row"><button class="btn small ghost" data-act="nclear">Abbrechen</button><button class="btn small danger" data-act="clear">Ja, löschen</button></div></div>`
+      : `<div class="row"><button class="btn small danger" data-act="askclear">Verlauf löschen</button><a class="btn small ghost" href="./" style="text-decoration:none;color:inherit">Zur Lernapp</a></div>`}
+    ${st.last ? `<p class="sync">Zuletzt aktualisiert um ${hm(new Date(st.last))}</p>` : ""}`;
+}
+
+document.addEventListener("click", e => {
+  const b = e.target.closest("[data-act]"); if (!b || b.disabled) return;
+  const a = b.dataset.act;
+  if (a === "refresh") refresh();
+  if (a === "savecode") {
+    const v = $("#f-code").value.trim();
+    if (!RE.test(v)) { st.msg = "Der Code darf nur Buchstaben, Zahlen, - und _ enthalten (8–64 Zeichen)."; render(); return; }
+    if (v !== code) { hist = []; lsSet(HIST_KEY, hist); }
+    code = v; lsSet(CODE_KEY, v); st.msg = ""; render(); refresh();
+  }
+  if (a === "askclear") { st.confirmClear = true; render(); }
+  if (a === "nclear") { st.confirmClear = false; render(); }
+  if (a === "clear") { hist = []; lsSet(HIST_KEY, hist); st.confirmClear = false; render(); }
+});
+document.addEventListener("keydown", e => { if (e.key === "Enter" && e.target.id === "f-code") $('[data-act="savecode"]').click(); });
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") refresh(); });
+setInterval(() => { if (document.visibilityState === "visible") refresh(); }, 60000);
+render(); refresh();
+</script>
+</body>
+</html>
